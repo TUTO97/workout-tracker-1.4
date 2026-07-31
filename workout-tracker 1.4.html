@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<title>Workout Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0c0c0c;--card:#131313;--card2:#1a1a1a;--border:#1e1e1e;--text:#f2efe9;--muted:#555;--muted2:#888;--body-color:#38bdf8}
+html,body{overflow-x:hidden;max-width:100vw}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,sans-serif;max-width:680px;margin:0 auto;padding-bottom:120px;min-height:100vh}
+
+.hdr{position:sticky;top:0;background:var(--bg);z-index:20;border-bottom:1px solid var(--border);padding:16px 16px 10px}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.hdr-tag{font-size:10px;letter-spacing:.18em;font-family:monospace;margin-bottom:3px;opacity:.7}
+.hdr-name{font-size:20px;font-weight:800;font-style:italic;letter-spacing:-.02em}
+.vbtns{display:flex;gap:3px;flex-shrink:0}
+.vbtn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 8px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.vbtn.on{background:var(--card2);color:#d4ff00;border-color:#2e2e2e}
+.dtabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.dtabs::-webkit-scrollbar{display:none}
+.dtab{background:#111;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;font-family:monospace;letter-spacing:.05em;flex-shrink:0}
+.dtab-add{background:transparent;border:1px dashed #222;color:#333;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-family:monospace;flex-shrink:0}
+.dtab-add:active{border-color:#d4ff0040;color:#d4ff0080}
+
+.dbar{padding:12px 16px;border-bottom:1px solid var(--border);background:#0e0e0e;display:flex;justify-content:space-between;align-items:center}
+.dmeta{font-size:9px;font-family:monospace;color:#444;letter-spacing:.14em;margin-bottom:3px}
+.dcnt{font-size:12px;color:var(--muted)}
+.dbar-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.editbtn{background:transparent;border:1px solid #222;color:#444;padding:5px 9px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.08em;white-space:nowrap}
+.editbtn.on{border-color:#d4ff0040;color:#d4ff00;background:#d4ff0008}
+.sarea{text-align:right}
+.slabel{font-size:9px;font-family:monospace;color:#444;margin-bottom:1px;letter-spacing:.1em}
+.sval{font-size:34px;font-weight:800;font-style:italic;line-height:1}
+.sunit{font-size:9px;font-family:monospace;color:#444}
+.sph{font-size:10px;color:#2a2a2a;font-family:monospace;text-align:right;line-height:1.6}
+
+#content{padding:10px 16px}
+
+/* ADD SLOT */
+.add-slot{display:flex;align-items:center;gap:8px;margin:4px 0;opacity:0;transition:opacity .15s;height:28px}
+.add-slot:hover,.add-slot.always{opacity:1}
+.add-line{flex:1;height:1px;background:var(--border)}
+.add-ex-btn{background:transparent;border:1px dashed #2a2a2a;color:#2a2a2a;padding:4px 12px;border-radius:12px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.1em;white-space:nowrap;transition:all .15s}
+.add-ex-btn:active{border-color:#d4ff0040;color:#d4ff0080}
+
+/* EXERCISE CARD */
+.exc{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;position:relative}
+.exc.edit-mode{border-color:#d4ff0020}
+.exc-controls{display:flex;gap:4px;margin-bottom:10px;justify-content:space-between;align-items:center}
+.exc-move-btns{display:flex;gap:3px}
+.move-btn{background:var(--card2);border:1px solid var(--border);color:#333;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.move-btn:active{color:#d4ff00;border-color:#d4ff0040}
+.move-btn:disabled{opacity:.2;cursor:default}
+.rm-ex-btn{background:transparent;border:1px solid #2a1a1a;color:#2a1a1a;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.08em;transition:all .15s}
+.rm-ex-btn:active{background:#ff603020;border-color:#ff6030;color:#ff6030}
+.confirm-rm{background:#1a0a0a;border:1px solid #ff603040;border-radius:6px;padding:10px;margin-bottom:10px}
+.confirm-rm p{font-size:11px;color:#888;margin-bottom:8px;text-align:center}
+.confirm-rm-btns{display:flex;gap:6px}
+.confirm-rm-btns button{flex:1;padding:8px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;font-weight:700}
+.crm-cancel{background:transparent;border:1px solid #222;color:#444}
+.crm-confirm{background:#ff603020;border:1px solid #ff6030;color:#ff6030}
+
+.exh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.exhl{flex:1;padding-right:10px}
+.exbadges{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
+.extag{font-size:8px;font-family:monospace;letter-spacing:.12em;padding:3px 7px;border-radius:2px}
+.extimed{font-size:8px;color:#444;font-family:monospace}
+.exname{font-size:14px;font-weight:700;margin-bottom:3px;line-height:1.2}
+.exname.blank{color:#333;font-style:italic;font-weight:400}
+.exdesc{font-size:11px;color:#4a4a4a;line-height:1.55}
+.exavg{text-align:right;flex-shrink:0}
+.eavglbl{font-size:8px;font-family:monospace;color:#333;margin-bottom:1px;letter-spacing:.1em}
+.eavgval{font-size:28px;font-weight:800;font-style:italic;line-height:1}
+.eavgunit{font-size:8px;font-family:monospace;color:#333}
+
+.clabels{display:flex;gap:5px;margin-bottom:4px;padding-left:44px}
+.clabel{font-size:8px;color:#333;font-family:monospace;letter-spacing:.1em;text-align:center}
+.srows{display:flex;flex-direction:column;gap:4px}
+.srow{display:flex;gap:5px;align-items:center}
+.snum{width:30px;height:36px;background:var(--card2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#3a3a3a;font-family:monospace;flex-shrink:0}
+.rmvset{width:30px;height:36px;background:transparent;border:none;color:#2a2a2a;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:4px}
+.rmvset:active{color:#ff6030;background:#ff603015}
+.sinp{flex:1;background:var(--card2);border:1px solid var(--border);border-radius:4px;color:var(--muted);padding:8px;font-size:16px;outline:none;text-align:center;font-weight:700;font-style:italic;-webkit-appearance:none}
+.winp{width:60px;background:var(--card2);border:1px solid var(--border);border-radius:4px;color:#666;padding:8px 4px;font-size:16px;outline:none;text-align:center;font-family:monospace;-webkit-appearance:none}
+.addbtn{background:transparent;border:1px dashed #222;border-radius:4px;color:#333;padding:7px;cursor:pointer;font-size:10px;font-family:monospace;letter-spacing:.1em;margin-top:2px;width:100%}
+
+/* LAST SESSION HINT */
+.lastline{font-size:9px;font-family:monospace;color:#3a3a3a;letter-spacing:.08em;margin-top:5px}
+.hexkg{color:#3a3a3a;font-size:9px;font-family:monospace}
+/* SETS STEPPER */
+.sets-count{min-width:38px;text-align:center;font-weight:800;font-style:italic;font-size:16px;color:var(--text);display:inline-flex;align-items:center;justify-content:center}
+/* NOTES */
+.day-note-inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:16px;outline:none;font-family:inherit;resize:none;min-height:40px;margin-bottom:12px;box-sizing:border-box}
+.day-note-inp::placeholder{color:#333}
+.day-note-inp:focus{border-color:#333}
+.ex-note-inp{width:100%;background:#0e0e0e;border:1px solid var(--border);border-radius:6px;color:#888;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;resize:none;min-height:32px;margin-top:8px;box-sizing:border-box}
+.ex-note-inp::placeholder{color:#2e2e2e}
+.ex-note-inp:focus{border-color:#333;color:var(--text)}
+.hist-note{font-size:11px;color:#555;font-family:inherit;font-style:italic;margin-top:4px;padding-top:4px;border-top:1px solid #1a1a1a}
+.hist-daynote{font-size:11px;color:#777;font-style:italic;margin:6px 0 10px;padding:8px 10px;background:#0e0e0e;border-radius:6px;border:1px solid #1a1a1a}
+
+/* CONSISTENCY STRIP */
+.consist-strip{margin-bottom:12px}
+.consist-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.consist-count{background:none;border:none;padding:0;cursor:pointer;text-align:left;display:flex;align-items:baseline;gap:3px;flex-shrink:0}
+.consist-count>span:first-child{font-size:22px;font-weight:800;font-style:italic;line-height:1}
+.consist-slash{font-size:12px;font-family:monospace;color:#3a3a3a}
+.consist-lbl{font-size:7px;font-family:monospace;color:#3a3a3a;letter-spacing:.14em;margin-left:6px}
+.consist-dots{display:flex;gap:4px}
+.cdot{width:22px;height:22px;border-radius:5px;border:1px solid #222;background:#0e0e0e;color:#2e2e2e;font-size:9px;font-family:monospace;font-weight:700;display:flex;align-items:center;justify-content:center}
+.cdot.future{opacity:.4}
+.cdot.today{box-shadow:0 0 0 1px #444}
+.target-edit{flex-direction:column;gap:8px;padding:10px 12px;margin-top:4px;background:#0e0e0e;border:1px solid var(--border);border-radius:6px}
+.target-edit-row{display:flex;align-items:center;gap:8px}
+.target-edit-lbl{font-size:8px;font-family:monospace;color:#3a3a3a;letter-spacing:.14em;flex:1}
+.track-toggle{background:transparent;border:1px solid #262626;border-radius:4px;color:#3a3a3a;font-size:8px;font-family:monospace;letter-spacing:.12em;font-weight:700;padding:5px 12px;cursor:pointer}
+.track-toggle.on{border-color:#00ffb340;color:#00ffb3;background:#00ffb308}
+.target-btn{width:26px;height:26px;background:transparent;border:1px solid #262626;border-radius:4px;color:#666;font-size:14px;cursor:pointer;line-height:1}
+.target-val{font-size:15px;font-weight:800;font-style:italic;min-width:16px;text-align:center}
+.creatine-row{margin-top:4px}
+.creatine-row.done{border-color:#00ffb330;background:#00ffb306}
+.creatine-toggle{background:none;border:none;padding:0;cursor:pointer;text-align:left;display:flex;align-items:baseline;gap:5px;flex-shrink:0;min-width:0}
+.creatine-mark{font-size:14px;color:#2e2e2e;line-height:1}
+.creatine-row.done .creatine-mark{color:#00ffb3}
+.creatine-name{font-size:9px;font-family:monospace;letter-spacing:.14em;font-weight:700;color:#3a3a3a}
+.creatine-row.done .creatine-name{color:#00ffb3}
+.creatine-streak{font-size:7px;font-family:monospace;letter-spacing:.1em;color:#2e2e2e;white-space:nowrap}
+.creatine-row.done .creatine-streak{color:#00ffb380}
+
+/* COACH TAB */
+.coach-btn{border-color:#8b7dff!important;color:#8b7dff!important;}
+.coach-btn.on{background:#8b7dff!important;color:#000!important;}
+/* Natural document flow — NOT a fixed-height flex container. 100vh on iOS
+   Safari includes the collapsing address bar, which made the wrapper taller
+   than the real viewport (scrolling into blank space, input bar half cut off).
+   The input bar is position:fixed instead, exactly like .savebar already is. */
+.coach-wrap{padding:0 16px}
+.coach-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px;gap:10px;min-height:40vh}
+.coach-empty-icon{font-size:32px;opacity:.3}
+.coach-empty-title{font-size:15px;font-weight:700;font-style:italic;color:#666}
+.coach-empty-sub{font-size:11px;color:#333;font-family:monospace;letter-spacing:.04em;line-height:1.7;max-width:280px}
+.coach-msgs{display:flex;flex-direction:column;gap:10px;padding:8px 0 16px}
+.coach-msg{max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+.coach-msg.user{align-self:flex-end;background:#8b7dff;color:#000;border-bottom-right-radius:4px;font-weight:500}
+.coach-msg.assistant{align-self:flex-start;background:var(--card);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
+.coach-msg.thinking{align-self:flex-start;background:var(--card);border:1px solid var(--border);color:#444;font-family:monospace;font-size:11px;letter-spacing:.08em}
+.coach-proposal{align-self:flex-start;max-width:90%;background:linear-gradient(135deg,#1a1730,#12101f);border:1px solid #8b7dff40;border-radius:12px;padding:14px;margin-top:2px}
+.coach-proposal-lbl{font-size:9px;font-family:monospace;color:#8b7dff;letter-spacing:.16em;margin-bottom:8px}
+.coach-proposal-body{font-size:13px;color:#ccc;margin-bottom:12px;line-height:1.5}
+.coach-proposal-btns{display:flex;gap:8px}
+.coach-apply-btn{flex:1;background:#8b7dff;border:none;border-radius:6px;color:#000;padding:9px;font-size:11px;font-weight:700;cursor:pointer;font-family:monospace;letter-spacing:.08em}
+.coach-dismiss-btn{background:transparent;border:1px solid #333;border-radius:6px;color:#555;padding:9px 14px;font-size:11px;cursor:pointer;font-family:monospace;letter-spacing:.08em}
+.coach-applied{font-size:11px;color:#00ffb3;font-family:monospace;letter-spacing:.06em;padding:4px 0}
+.coach-input-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:680px;box-sizing:border-box;display:flex;gap:8px;padding:10px 16px 28px;align-items:flex-end;background:linear-gradient(to top,#0c0c0c 72%,transparent);z-index:30}
+.coach-inp{flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;color:var(--text);padding:12px 16px;font-size:16px;outline:none;font-family:inherit;resize:none;max-height:100px;min-height:44px}
+.coach-inp:focus{border-color:#8b7dff50}
+.coach-mic-btn{width:44px;height:44px;flex-shrink:0;border-radius:50%;background:var(--card);border:1px solid var(--border);color:#666;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.coach-mic-btn.recording{background:#ff6030;border-color:#ff6030;color:#000;animation:pulse 1s infinite}
+.coach-send-btn{width:44px;height:44px;flex-shrink:0;border-radius:50%;background:#8b7dff;border:none;color:#000;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.coach-send-btn:disabled{opacity:.3}
+.coach-actions{display:flex;justify-content:flex-end;gap:6px;padding-top:10px}
+.coach-chip{font-size:9px;font-family:monospace;color:#555;letter-spacing:.08em;background:none;border:1px solid #222;border-radius:20px;padding:5px 11px;cursor:pointer}
+.coach-chip:active{opacity:.7}
+.coach-chip-accent{border-color:#8b7dff40;color:#8b7dff}
+.coach-chip-danger{color:#333;border-color:#1a1a1a}
+
+/* PROFILE SHEET */
+.profile-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);z-index:150;display:none;align-items:flex-end;justify-content:center}
+.profile-overlay.show{display:flex}
+.profile-card{width:100%;max-width:680px;background:linear-gradient(180deg,#161226,#0f0d1a);border:1px solid #8b7dff28;border-bottom:none;border-radius:18px 18px 0 0;padding:20px 18px 30px;animation:sheetUp .28s cubic-bezier(.2,.9,.3,1);box-sizing:border-box}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.profile-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-family:monospace;letter-spacing:.2em;color:#8b7dff;margin-bottom:8px}
+.profile-x{background:none;border:none;color:#444;font-size:20px;cursor:pointer;line-height:1;padding:0 2px}
+.profile-sub{font-size:11px;color:#555;line-height:1.6;margin-bottom:14px}
+.profile-inp{width:100%;min-height:150px;background:#0c0a14;border:1px solid #241f3a;border-radius:10px;color:var(--text);padding:12px 14px;font-size:16px;line-height:1.55;outline:none;font-family:inherit;resize:none;box-sizing:border-box}
+.profile-inp:focus{border-color:#8b7dff50}
+.profile-inp::placeholder{color:#2e2a44}
+.profile-done{width:100%;background:#8b7dff;border:none;border-radius:8px;color:#000;padding:13px;font-size:11px;font-weight:700;cursor:pointer;font-family:monospace;letter-spacing:.14em;margin-top:12px}
+.profile-done:active{opacity:.85}
+
+/* CONSISTENCY SETTINGS GEAR */
+.consist-gear{width:22px;height:22px;flex-shrink:0;background:none;border:1px solid #222;border-radius:5px;color:#3a3a3a;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-left:2px}
+.consist-gear:active{border-color:#444;color:#666}
+
+/* VERSIONS */
+.versions-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px}
+.save-version-btn{width:100%;background:transparent;border:1px solid #8b7dff40;border-radius:6px;color:#8b7dff;padding:10px;font-size:10px;font-weight:700;cursor:pointer;font-family:monospace;letter-spacing:.08em;margin-bottom:10px}
+.save-version-btn:active{background:#8b7dff10}
+.versions-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+.versions-empty{font-size:10px;font-family:monospace;color:#333;text-align:center;padding:10px}
+.version-row{display:flex;align-items:center;justify-content:space-between;background:#0e0e0e;border:1px solid #1a1a1a;border-radius:6px;padding:8px 10px;gap:8px}
+.version-info{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.version-icon{font-size:11px;flex-shrink:0}
+.version-label{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.version-date{font-size:9px;font-family:monospace;color:#333;flex-shrink:0}
+.version-btns{display:flex;gap:4px;flex-shrink:0}
+.version-restore{background:transparent;border:1px solid #262626;border-radius:4px;color:#666;font-size:8px;font-family:monospace;letter-spacing:.06em;padding:5px 8px;cursor:pointer}
+.version-restore:active{border-color:#8b7dff60;color:#8b7dff}
+.version-del{background:none;border:none;color:#333;font-size:14px;cursor:pointer;padding:0 4px}
+
+/* INLINE VOICE INPUT (notes, name, description) */
+.note-with-mic{position:relative}
+.note-with-mic .day-note-inp,.note-with-mic .ex-note-inp,.note-with-mic .edit-desc-inp{padding-right:42px}
+.note-with-mic .edit-inp{padding-right:42px}
+.mic-inline{position:absolute;bottom:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#1a1a1a;border:1px solid #262626;color:#666;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.mic-inline-sm{bottom:6px;right:6px;width:22px;height:22px;font-size:10px}
+.note-with-mic input.edit-inp+.mic-inline{top:50%;bottom:auto;transform:translateY(-50%)}
+.mic-inline.recording{background:#ff6030;border-color:#ff6030;color:#000;animation:pulse 1s infinite}
+.mic-inline:disabled{opacity:.5}
+
+/* EDIT FIELDS */
+.edit-card{background:var(--card2);border:1px solid #d4ff0015;border-radius:6px;padding:12px;margin-bottom:10px}
+.edit-section-lbl{font-size:8px;font-family:monospace;color:#444;letter-spacing:.14em;margin-bottom:5px;text-transform:uppercase}
+.edit-inp{background:#0e0e0e;border:1px solid var(--border);border-radius:4px;color:var(--text);padding:7px 10px;font-size:14px;font-weight:700;outline:none;width:100%;margin-bottom:8px;font-family:inherit}
+.edit-inp:focus{border-color:#d4ff0050}
+.edit-desc-inp{background:#0e0e0e;border:1px solid var(--border);border-radius:4px;color:#888;padding:7px 10px;font-size:12px;outline:none;width:100%;margin-bottom:8px;font-family:inherit;resize:none;line-height:1.55;min-height:56px}
+.edit-row{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+.tag-btn{background:transparent;border:1px solid #222;color:#444;padding:5px 9px;border-radius:3px;font-size:8px;font-family:monospace;letter-spacing:.1em;cursor:pointer}
+.tag-btn.on{color:#000;font-weight:700}
+.type-btn{background:#0e0e0e;border:1px solid var(--border);color:#555;padding:6px 12px;border-radius:3px;font-size:9px;font-family:monospace;letter-spacing:.08em;cursor:pointer;flex:1;text-align:center}
+.type-btn.on{background:#d4ff0020;border-color:#d4ff0040;color:#d4ff00}
+
+/* DAY EDIT PANEL */
+.day-edit-panel{background:#0e0e0e;border:1px solid #d4ff0020;border-radius:8px;padding:16px;margin-bottom:14px}
+.dep-title{font-size:9px;font-family:monospace;color:#d4ff00;letter-spacing:.16em;margin-bottom:14px;text-transform:uppercase}
+.dep-row{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.dep-label{font-size:9px;font-family:monospace;color:#444;width:60px;flex-shrink:0;letter-spacing:.1em}
+.dep-inp{background:var(--card);border:1px solid #d4ff0030;border-radius:4px;color:#d4ff00;padding:7px 10px;font-size:16px;font-weight:700;outline:none;font-family:inherit;flex:1}
+.dep-emoji{background:var(--card);border:1px solid #d4ff0030;border-radius:4px;color:#d4ff00;padding:7px 10px;font-size:18px;outline:none;font-family:inherit;width:56px;text-align:center}
+.color-opts{display:flex;gap:6px;flex-wrap:wrap}
+.color-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;flex-shrink:0;transition:all .15s}
+.color-opt.on{border-color:white;transform:scale(1.15)}
+.dep-move-btns{display:flex;gap:4px}
+.dep-movebtn{background:var(--card);border:1px solid var(--border);color:#333;width:32px;height:32px;border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center}
+.dep-movebtn:active{color:#d4ff00}
+.dep-movebtn:disabled{opacity:.2;cursor:default}
+.dep-rmbtn{background:transparent;border:1px solid #2a1a1a;color:#2a1a1a;padding:7px 12px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.08em;width:100%;margin-top:6px;transition:all .15s}
+.dep-rmbtn:active{background:#ff603020;border-color:#ff6030;color:#ff6030}
+.dep-confirm{background:#1a0a0a;border:1px solid #ff603040;border-radius:6px;padding:12px;margin-top:8px;text-align:center}
+.dep-confirm p{font-size:11px;color:#888;margin-bottom:10px}
+.dep-confirm-btns{display:flex;gap:6px}
+.dep-confirm-btns button{flex:1;padding:9px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;font-weight:700}
+.dpc-cancel{background:transparent;border:1px solid #222;color:#444}
+.dpc-confirm{background:#ff603020;border:1px solid #ff6030;color:#ff6030}
+.add-day-btn{width:100%;background:transparent;border:1px dashed #2a2a2a;color:#333;padding:12px;border-radius:6px;cursor:pointer;font-size:10px;font-family:monospace;letter-spacing:.12em;margin-top:4px;transition:all .15s}
+.add-day-btn:active{border-color:#d4ff0040;color:#d4ff0080}
+
+/* HISTORY */
+.slbl{font-size:9px;font-family:monospace;color:#444;letter-spacing:.14em;margin-bottom:14px}
+.empty{text-align:center;padding:50px 20px;border:1px dashed #1a1a1a;border-radius:8px}
+.eicon{font-size:32px;margin-bottom:12px}.etext{font-size:13px;color:#333}.esub{font-size:11px;color:#252525;margin-top:6px}
+.hcard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px}
+.htop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.hbadge{font-size:9px;font-family:monospace;color:#444;margin-bottom:4px}
+.hdate{font-size:15px;font-weight:700}
+.hdiff{font-size:11px;font-family:monospace;margin-top:3px}
+.hslbl{font-size:9px;font-family:monospace;color:#444;margin-bottom:2px;letter-spacing:.1em;text-align:right}
+.hsval{font-size:40px;font-weight:800;font-style:italic;line-height:1}
+.hexrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #191919}
+.hexname{font-size:12px;color:#666}
+.hexr{display:flex;align-items:center;gap:10px}
+.hexsets{font-size:10px;color:#333;font-family:monospace}
+.hexavg{font-size:18px;font-weight:800;font-style:italic}
+.delbtn{background:transparent;border:1px solid #2a1a1a;color:#3a1a1a;padding:8px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.1em;width:100%;margin-top:10px}
+.confirmdel{background:#1a0a0a;border:1px solid #ff603040;border-radius:6px;padding:12px;margin-top:8px;text-align:center}
+.confirmdel p{font-size:12px;color:#888;margin-bottom:10px}
+.confirmdel-btns{display:flex;gap:6px}
+.confirmdel-btns button{flex:1;padding:9px;border-radius:4px;cursor:pointer;font-size:10px;font-family:monospace;font-weight:700}
+.cancelbtn{background:transparent;border:1px solid #222;color:#444}
+.confirmbtn{background:#ff603020;border:1px solid #ff6030;color:#ff6030}
+
+/* PROGRESS */
+.ptabs{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none}
+.ptabs::-webkit-scrollbar{display:none}
+.ptab{background:#111;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:9px;font-weight:700;white-space:nowrap;font-family:monospace;letter-spacing:.05em;flex-shrink:0}
+.ccard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px}
+.ctitle{font-size:9px;font-family:monospace;color:#444;letter-spacing:.12em;margin-bottom:4px}
+.csub{font-size:18px;font-weight:800;font-style:italic;margin-bottom:14px}
+.cempty{text-align:center;padding:32px 20px;color:#2a2a2a;font-size:11px;font-family:monospace;border:1px dashed #1a1a1a;border-radius:6px;line-height:1.8}
+.cstats{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:12px}
+.cstat{background:var(--card2);border-radius:4px;padding:10px;text-align:center}
+.cstlbl{font-size:8px;font-family:monospace;color:#444;letter-spacing:.1em;margin-bottom:4px}
+.cstval{font-size:20px;font-weight:800;font-style:italic;line-height:1}
+.cstunit{font-size:8px;color:#333;font-family:monospace}
+.cfooter{font-size:10px;color:#2a2a2a;text-align:center;margin-top:8px;font-family:monospace;line-height:1.5}
+
+.savebar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:680px;padding:10px 16px 28px;background:linear-gradient(to top,#0c0c0c 60%,transparent)}
+.savebtn{width:100%;border:none;border-radius:8px;padding:14px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;letter-spacing:.14em;transition:all .25s}
+.loading-state{text-align:center;padding:50px 20px;font-family:monospace;font-size:10px;color:#2a2a2a;letter-spacing:.16em}
+.log-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.log-header .slbl{margin-bottom:0}
+.export-btn{background:transparent;border:1px solid #222;color:#444;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.1em;white-space:nowrap}
+.export-btn:active{border-color:#d4ff0040;color:#d4ff00}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* AUTH */
+.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px}
+.auth-overlay.hide{display:none}
+.auth-logo{font-size:11px;font-family:monospace;color:#333;letter-spacing:.2em;margin-bottom:8px}
+.auth-title{font-size:28px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin-bottom:32px;text-align:center}
+.auth-card{width:100%;max-width:340px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.auth-tabs{display:flex;gap:4px;margin-bottom:20px}
+.auth-tab{flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px;border-radius:4px;cursor:pointer;font-size:10px;font-family:monospace;letter-spacing:.1em}
+.auth-tab.on{background:var(--card2);color:var(--text);border-color:#2e2e2e}
+.auth-inp{width:100%;background:#0e0e0e;border:1px solid var(--border);border-radius:4px;color:var(--text);padding:10px 12px;font-size:16px;outline:none;margin-bottom:10px;font-family:inherit}
+.auth-inp:focus{border-color:#d4ff0050}
+.auth-submit{width:100%;background:#d4ff00;border:none;border-radius:6px;color:#000;padding:13px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;letter-spacing:.14em;margin-top:4px;transition:opacity .15s}
+.auth-submit:active{opacity:.8}
+.auth-err{font-size:11px;color:#ff6030;font-family:monospace;text-align:center;margin-top:10px;min-height:16px;letter-spacing:.06em}
+.auth-foot{font-size:10px;color:#2a2a2a;font-family:monospace;text-align:center;margin-top:20px;line-height:1.6}
+.ex-graph-section{margin-bottom:14px}
+.ex-sec-lbl{font-size:8px;font-family:monospace;color:#333;letter-spacing:.16em;margin-bottom:6px;margin-top:12px}
+.ex-btns{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px}
+.ex-sel-btn{background:transparent;border:1px solid #1e1e1e;color:#444;padding:7px 11px;border-radius:4px;cursor:pointer;font-size:10px;font-family:monospace;letter-spacing:.06em;transition:all .15s}
+.ex-sel-btn:active{opacity:.7}
+.signout-btn{background:transparent;border:1px solid #1a1a1a;color:#2a2a2a;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:9px;font-family:monospace;letter-spacing:.08em}
+.signout-btn:active{border-color:#ff603040;color:#ff6030}
+</style>
+</head>
+<body>
+
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-logo">// WORKOUT TRACKER</div>
+  <div class="auth-title">Track Your <span style="color:#d4ff00">Gains</span></div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="tabLogin" onclick="switchAuthTab('login')">LOG IN</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">SIGN UP</button>
+    </div>
+    <input class="auth-inp" id="authEmail" type="email" placeholder="Email" autocomplete="email"/>
+    <input class="auth-inp" id="authPass" type="password" placeholder="Password" autocomplete="current-password"/>
+    <button class="auth-submit" id="authBtn" onclick="doAuth()">LOG IN</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+  <div class="auth-foot">Your data is private and stored securely.<br>No one else can see your sessions.</div>
+</div>
+
+<div class="profile-overlay" id="profileOverlay">
+  <div class="profile-card">
+    <div class="profile-head">// YOUR PROFILE <button class="profile-x" onclick="closeProfile()">×</button></div>
+    <div class="profile-sub">Who you are, your goals, injuries, schedule limits — anything the coach should always keep in mind. It reads this with every message you send.</div>
+    <div class="note-with-mic">
+      <textarea id="aboutMeInp" class="profile-inp" placeholder="e.g. 21, bulking to 84kg by October. Calisthenics focus — planche and front lever are the priority. Left wrist gets cranky on deep leans, so I warm up long." oninput="aboutMeH(this.value)"></textarea>
+      <button class="mic-inline" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('aboutMeInp'),t,aboutMeH))">🎤</button>
+    </div>
+    <button class="profile-done" onclick="closeProfile()">DONE</button>
+  </div>
+</div>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div>
+      <div class="hdr-tag" id="hdrDate">// WORKOUT TRACKER</div>
+      <div class="hdr-name">Track Your <span id="hdrAccent" style="color:#d4ff00">Gains</span></div>
+    </div>
+    <div class="vbtns">
+      <button class="vbtn on" onclick="setView('track')">TRACK</button>
+      <button class="vbtn" onclick="setView('history')">LOG</button>
+      <button class="vbtn" onclick="setView('progress')">GRAPH</button>
+      <button class="vbtn coach-btn" onclick="setView('coach')">COACH</button>
+      <button class="signout-btn" onclick="doSignOut()">OUT</button>
+    </div>
+  </div>
+  <div class="dtabs" id="dayTabs"></div>
+</div>
+
+<div class="dbar">
+  <div>
+    <div class="dmeta" id="dayMeta"></div>
+    <div class="dcnt" id="dayCnt"></div>
+  </div>
+  <div class="dbar-right">
+    <button class="editbtn" id="editBtn" onclick="toggleEdit()">✏️ EDIT</button>
+    <div class="sarea" id="scoreArea"><div class="sph">— log sets<br>to score</div></div>
+  </div>
+</div>
+
+<div id="content"></div>
+
+<div class="savebar" id="saveBar">
+  <button class="savebtn" id="saveBtn" onclick="saveSession()">SAVE</button>
+</div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────
+const SUPABASE_URL="https://afnqeyjlnqlwytwxpeck.supabase.co";
+const SUPABASE_KEY="sb_publishable_BYRFOSaJjbveg2NGtvmyDQ_EV_yTjIV";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// ── DEFAULT DATA ──────────────────────────────────────
+const DEFAULT_DAYS=[
+  {key:"push",label:"Push",day:"Tuesday",loc:"Gym",color:"#d4ff00",emoji:"🔥",exercises:[
+    {id:"planche_lean",name:"Planche Lean Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Lean forward on straight arms. Build hold time each week."},
+    {id:"wall_hs",name:"Wall Handstand Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Kick up to wall, body straight and tight. Focus on alignment."},
+    {id:"pushups",name:"Push-ups",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Chest to floor, elbows 45°, full lockout at top."},
+    {id:"pike_pu",name:"Pike Push-ups",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Hips high, flat back, head neutral. Shoulders do the work."},
+    {id:"db_floor",name:"DB Floor Press",tag:"STRENGTH",type:"reps",sets:4,showWeight:true,defaultWeight:"12.5",desc:"Flat on floor, press straight up. Control the descent."},
+    {id:"ohp",name:"Overhead Press",tag:"STRENGTH",type:"reps",sets:4,showWeight:true,defaultWeight:"10",desc:"Press straight overhead, core braced, don't arch back."},
+    {id:"tricep_ext",name:"Overhead Tricep Extension",tag:"STRENGTH",type:"reps",sets:3,showWeight:false,desc:"Dumbbell behind head, elbows in tight, extend all the way up."},
+  ]},
+  {key:"pull",label:"Pull",day:"Thursday",loc:"Gym",color:"#00ffb3",emoji:"💪",exercises:[
+    {id:"neg_pu",name:"Negative Pull-ups",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Jump to top, lower as slowly as possible. Goal: 5+ seconds."},
+    {id:"front_lev",name:"Front Lever Tuck Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Hang from bar, tuck knees, push body horizontal."},
+    {id:"back_lev",name:"Back Lever Tuck Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Hang facing down, tuck, body parallel to floor."},
+    {id:"pullups",name:"Pull-ups",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Dead hang start, chin over bar, full range every rep."},
+    {id:"db_rows",name:"DB Rows",tag:"STRENGTH",type:"reps",sets:4,showWeight:true,defaultWeight:"12.5",desc:"Row to hip, elbow back, squeeze lat at top."},
+    {id:"bicep_curl",name:"Bicep Curls",tag:"STRENGTH",type:"reps",sets:3,showWeight:true,defaultWeight:"10",desc:"Slow up, slow down. No swinging."},
+    {id:"hammer",name:"Hammer Curls",tag:"STRENGTH",type:"reps",sets:3,showWeight:true,defaultWeight:"14.5",desc:"Neutral grip. Same controlled motion."},
+    {id:"rear_delt",name:"Rear Delt Raises",tag:"STRENGTH",type:"reps",sets:3,showWeight:false,desc:"Bent over, raise arms out to sides."},
+  ]},
+  {key:"legs",label:"Legs",day:"Friday",loc:"Gym",color:"#ff6030",emoji:"🦵",exercises:[
+    {id:"bw_squat",name:"Bodyweight Squats",tag:"WARMUP",type:"reps",sets:2,showWeight:false,desc:"Warm-up. Full depth, controlled."},
+    {id:"goblet",name:"Goblet Squats",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Hold dumbbell at chest, squat deep."},
+    {id:"bulgarian",name:"Bulgarian Split Squats",tag:"STRENGTH",type:"reps",sets:3,showWeight:false,desc:"Rear foot on bench. Log reps per leg."},
+    {id:"rdl",name:"Romanian Deadlifts",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Hinge at hips, slight knee bend. Feel hamstrings stretch."},
+    {id:"calf_raise",name:"Calf Raises",tag:"STRENGTH",type:"reps",sets:4,showWeight:false,desc:"Full range. Pause at top, lower all the way."},
+    {id:"glute_bridge",name:"Glute Bridges",tag:"STRENGTH",type:"reps",sets:3,showWeight:false,desc:"Drive hips up, squeeze glutes hard at top."},
+    {id:"hollow_legs",name:"Hollow Body Hold",tag:"CORE",type:"timed",sets:3,showWeight:false,desc:"Lower back pressed flat. Arms and legs extended."},
+  ]},
+  {key:"skill",label:"Skill+Core",day:"Saturday",loc:"Home",color:"#a78bfa",emoji:"🎯",exercises:[
+    {id:"lsit",name:"L-sit Hold",tag:"SKILL",type:"timed",sets:5,showWeight:false,desc:"Parallel bars or floor. Legs straight, arms locked."},
+    {id:"planche_home",name:"Planche Lean Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Lean progressively further each week."},
+    {id:"hs_home",name:"Wall Handstand Hold",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"Work on alignment. Start peeling off wall."},
+    {id:"front_home",name:"Front Lever Tuck",tag:"SKILL",type:"timed",sets:3,showWeight:false,desc:"On pull-up bar. Tuck → advanced tuck → one leg → full."},
+    {id:"muscleup_prac",name:"Muscle-up Practice",tag:"SKILL",type:"reps",sets:3,showWeight:false,desc:"Jump muscle-up or band assisted. Focus on the transition."},
+    {id:"hang_leg",name:"Hanging Leg Raises",tag:"CORE",type:"reps",sets:3,showWeight:false,desc:"Dead hang, raise legs to 90° or higher. Zero swinging."},
+    {id:"leg_hold",name:"Leg Raise Hold",tag:"CORE",type:"timed",sets:3,showWeight:false,desc:"Hold legs at 90° from hanging."},
+    {id:"bike_crunch",name:"Bicycle Crunches",tag:"CORE",type:"reps",sets:3,showWeight:false,desc:"Slow and deliberate. Feel the oblique on each twist."},
+    {id:"russian",name:"Russian Twists",tag:"CORE",type:"reps",sets:3,showWeight:true,defaultWeight:"8",desc:"Feet off floor. Rotate fully each side."},
+    {id:"hollow_home",name:"Hollow Body Hold",tag:"CORE",type:"timed",sets:3,showWeight:false,desc:"Foundation of every skill. Build this relentlessly."},
+  ]},
+  {key:"fullbody",label:"Full Body",day:"Monday",loc:"Gym",color:"#ff9f43",emoji:"⚡",exercises:[
+    {id:"fb_pullups",name:"Pull-ups",tag:"PULL",type:"reps",sets:3,showWeight:false,desc:"Max reps, perfect form."},
+    {id:"fb_pushups",name:"Push-ups",tag:"PUSH",type:"reps",sets:3,showWeight:false,desc:"Focus on form improvements since Tuesday."},
+    {id:"fb_pike",name:"Pike Push-ups",tag:"PUSH",type:"reps",sets:3,showWeight:false,desc:"Apply any form corrections. Build the reps."},
+    {id:"fb_rows",name:"DB Rows",tag:"PULL",type:"reps",sets:3,showWeight:true,defaultWeight:"12.5",desc:"Row to hip, squeeze at top."},
+    {id:"fb_lunges",name:"Walking Lunges",tag:"LEGS",type:"reps",sets:3,showWeight:false,desc:"Alternating legs. Step long, knee doesn't go past toes."},
+    {id:"fb_leg_raise",name:"Hanging Leg Raises",tag:"CORE",type:"reps",sets:3,showWeight:false,desc:"Core finisher. Full range."},
+    {id:"fb_planche",name:"Planche Lean Hold",tag:"SKILL",type:"timed",sets:2,showWeight:false,desc:"Keep the skill sharp. Beat your Tuesday time."},
+  ]},
+];
+
+const COLORS=["#d4ff00","#00ffb3","#ff6030","#a78bfa","#ff9f43","#38bdf8","#f472b6","#fb923c","#34d399","#f2efe9"];
+const EMOJIS=["🔥","💪","🦵","🎯","⚡","🏋️","🧘","🏃","🤸","⭕","🎖️","💥"];
+const TAGS=["SKILL","STRENGTH","CORE","WARMUP","PULL","PUSH","LEGS"];
+const TC={SKILL:"#a78bfa",STRENGTH:"#d4ff00",CORE:"#00ffb3",WARMUP:"#888",PULL:"#00ffb3",PUSH:"#d4ff00",LEGS:"#ff6030"};
+
+let aDay=0,view="track",aProg=0,aExDay=0,aExId=null,editMode=false,sets={},exNotes={},dayNote="",saved=false,saveBusy=false;
+
+// ── STORE (in-memory + Supabase sync) ────────────────
+let store={days:[],timers:{}};
+let _saveDebounce=null;
+
+function getStore(){return store;}
+function saveStore(s){
+  store=s;
+  clearTimeout(_saveDebounce);
+  _saveDebounce=setTimeout(()=>{_saveDebounce=null;syncConfig();},600);
+}
+function flushConfig(){
+  if(_saveDebounce){clearTimeout(_saveDebounce);_saveDebounce=null;syncConfig();}
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function getDays(){return store.days||[];}
+function getActiveDay(){const d=getDays();return d[aDay]||d[0]||null;}
+
+async function syncConfig(){
+  if(!store.days||store.days.length===0)return; // SAFETY: never overwrite real data with empty
+  const{data:{user}}=await sb.auth.getUser();
+  if(!user)return;
+  const{data:rows}=await sb.from("user_config").select("id").eq("user_id",user.id).order("updated_at",{ascending:false});
+  if(rows&&rows.length>1){
+    const toDelete=rows.slice(1).map(r=>r.id);
+    await sb.from("user_config").delete().in("id",toDelete);
+  }
+  if(rows&&rows.length>0){
+    await sb.from("user_config").update({config:store,updated_at:new Date().toISOString()}).eq("id",rows[0].id);
+  }else{
+    await sb.from("user_config").insert({user_id:user.id,config:store,updated_at:new Date().toISOString()});
+  }
+}
+
+async function loadConfig(){
+  const{data:{user}}=await sb.auth.getUser();
+  if(!user)return;
+  // NOTE: the old localStorage->Supabase migration was removed here. Its flag
+  // was device-wide rather than per-user, so on a shared device it could import
+  // one person's leftover routine into the next account that signed in.
+  const{data,error}=await sb.from("user_config").select("config").eq("user_id",user.id).order("updated_at",{ascending:false}).limit(1).maybeSingle();
+  if(error){console.error("loadConfig error:",error);return;} // load failed — do nothing, keep store as-is
+  if(data?.config?.days?.length){
+    store=data.config; // only load if real data exists
+  }
+  // if no data found, store stays empty — new user blank canvas
+}
+
+function updateDay(idx,fn){
+  fn(store.days[idx]);saveStore(store);
+}
+function updateEx(dayIdx,exId,fn){
+  const ex=store.days[dayIdx]?.exercises?.find(e=>e.id===exId);
+  if(ex)fn(ex);saveStore(store);
+}
+
+// ── IN-PROGRESS SETS CACHE (localStorage, per-day, today only) ──
+function saveSetsCache(){
+  try{
+    const d=getActiveDay();if(!d)return;
+    let c={};try{c=JSON.parse(localStorage.getItem("wt_sets_cache")||"{}")||{};}catch{}
+    if(c.date!==td())c={date:td(),byDay:{}};
+    if(!c.byDay)c.byDay={};
+    c.byDay[d.key]={sets,exNotes,dayNote};
+    localStorage.setItem("wt_sets_cache",JSON.stringify(c));
+  }catch{}
+}
+function loadSetsCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem("wt_sets_cache")||"null");
+    const d=getActiveDay();
+    if(c&&d&&c.date===td()&&c.byDay&&c.byDay[d.key]){
+      const cached=c.byDay[d.key];
+      sets=cached.sets||{};exNotes=cached.exNotes||{};dayNote=cached.dayNote||"";
+      return true;
+    }
+  }catch{}
+  return false;
+}
+function clearSetsCache(dayKey){
+  try{
+    const c=JSON.parse(localStorage.getItem("wt_sets_cache")||"null");
+    if(c&&c.byDay){delete c.byDay[dayKey];localStorage.setItem("wt_sets_cache",JSON.stringify(c));}
+  }catch{}
+}
+
+// Apply config changes (set count, default kg) to untouched rows after editing
+function reconcileSets(){
+  const d=getActiveDay();if(!d)return;
+  (d.exercises||[]).forEach(ex=>{
+    const target=Math.max(1,parseInt(ex.sets)||3);
+    const w=ex.showWeight&&ex.defaultWeight?ex.defaultWeight:"";
+    if(!sets[ex.id])sets[ex.id]=[];
+    const rows=sets[ex.id];
+    while(rows.length<target)rows.push({reps:"",weight:w});
+    while(rows.length>target&&rows[rows.length-1].reps==="")rows.pop();
+    rows.forEach(r=>{if(r.reps==="")r.weight=w;}); // untouched rows pick up the new default kg
+  });
+  saveSetsCache();
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function uid(){return`cx_${Date.now()}_${Math.random().toString(36).slice(2,6)}`}
+function td(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function avg(a){const v=a.filter(n=>!isNaN(n)&&n>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null}
+function fmtD(s){const d=new Date(s);return`${d.getDate()}/${d.getMonth()+1}`}
+function wkKey(s){const d=new Date(s),dy=d.getDay(),m=new Date(d);m.setDate(d.getDate()-dy+(dy===0?-6:1));return m.toISOString().split("T")[0]}
+// Monday of the week containing dateStr — built from local date parts so it never shifts by timezone
+function weekStart(dateStr){
+  const p=(dateStr||td()).split("-").map(Number);
+  const d=new Date(p[0],p[1]-1,p[2]);
+  const dy=d.getDay(); // 0=Sun
+  d.setDate(d.getDate()-dy+(dy===0?-6:1));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function addDays(dateStr,n){
+  const p=dateStr.split("-").map(Number);
+  const d=new Date(p[0],p[1]-1,p[2]);
+  d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function weeklyTarget(){return Math.max(1,Math.min(7,parseInt(store.weeklyTarget)||4));}
+// Creatine tracking is opt-in. If the user has never explicitly chosen, infer:
+// show it for anyone who already has creatine logged (so existing users keep
+// it without doing anything), hide it for brand-new users.
+function creatineEnabled(data){
+  if(typeof store.trackCreatine==="boolean")return store.trackCreatine;
+  return !!(data&&data.creatineDates&&data.creatineDates.size>0);
+}
+
+// ── DAY MANAGEMENT ────────────────────────────────────
+function addDay(){
+  if(!store.days)store.days=[];
+  const newDay={key:uid(),label:"New Day",day:"",loc:"",color:COLORS[store.days.length%COLORS.length],emoji:"⭕",exercises:[]};
+  store.days.push(newDay);saveStore(store);
+  aDay=store.days.length-1;sets={};
+  renderTabs();updDayBar();renderEdit();
+}
+
+function removeDay(idx){
+  if(!store.days||store.days.length<=1)return;
+  store.days.splice(idx,1);saveStore(store);
+  if(aDay>=store.days.length)aDay=store.days.length-1;
+  sets={};initSets();renderTabs();updDayBar();
+  if(editMode)renderEdit();else renderTrack();
+}
+
+function moveDay(idx,dir){
+  const ni=idx+dir;if(ni<0||ni>=store.days.length)return;
+  [store.days[idx],store.days[ni]]=[store.days[ni],store.days[idx]];
+  saveStore(store);aDay=ni;
+  renderTabs();updDayBar();
+  if(editMode)renderEdit();else renderTrack();
+}
+
+// ── EXERCISE MANAGEMENT ───────────────────────────────
+function addExercise(afterIdx){
+  const ex={id:uid(),name:"",tag:"",type:"reps",sets:3,showWeight:false,defaultWeight:"",desc:""};
+  store.days[aDay].exercises.splice(afterIdx+1,0,ex);
+  saveStore(store);sets[ex.id]=Array(3).fill(null).map(()=>({reps:"",weight:""}));
+  updDayCnt();
+  if(editMode)renderEdit();else renderTrack();
+}
+
+function removeExercise(exId){
+  store.days[aDay].exercises=store.days[aDay].exercises.filter(e=>e.id!==exId);
+  saveStore(store);delete sets[exId];
+  saved=false;updScore();updDayCnt();
+  if(editMode)renderEdit();else renderTrack();
+}
+
+function moveExercise(exId,dir){
+  const exs=store.days[aDay].exercises;
+  const i=exs.findIndex(e=>e.id===exId);
+  const ni=i+dir;if(ni<0||ni>=exs.length)return;
+  [exs[i],exs[ni]]=[exs[ni],exs[i]];
+  saveStore(store);
+  if(editMode)renderEdit();else renderTrack();
+}
+
+// ── INIT SETS ─────────────────────────────────────────
+function initSets(){
+  const d=getActiveDay();if(!d)return;
+  const restored=loadSetsCache(); // restore today's in-progress sets + notes for this day
+  if(!restored){exNotes={};dayNote="";}
+  (d.exercises||[]).forEach(ex=>{
+    if(!sets[ex.id]){
+      const w=ex.showWeight&&ex.defaultWeight?ex.defaultWeight:"";
+      sets[ex.id]=Array(Math.max(1,parseInt(ex.sets)||3)).fill(null).map(()=>({reps:"",weight:w}));
+    }
+    if(exNotes[ex.id]===undefined)exNotes[ex.id]="";
+  });
+}
+
+// ── SESSIONS (Supabase — always filtered to the logged-in user) ──
+async function currentUser(){const{data:{user}}=await sb.auth.getUser();return user;}
+async function dayHistory(dk){
+  const user=await currentUser();if(!user)return[];
+  const{data,error}=await sb.from("workout_sessions").select("*").eq("user_id",user.id).eq("day_key",dk).order("date",{ascending:false}).limit(10);
+  if(error){console.error(error);return[];}
+  return(data||[]).map(r=>({dt:r.date,dk:r.day_key,sets:r.sets||{},sc:r.score,notes:r.notes||{}}));
+}
+async function dayProg(dk){
+  const user=await currentUser();if(!user)return[];
+  const{data,error}=await sb.from("workout_sessions").select("date,score").eq("user_id",user.id).eq("day_key",dk).not("score","is",null).order("date",{ascending:true});
+  if(error){console.error(error);return[];}
+  return(data||[]).map(r=>({l:fmtD(r.date),v:parseFloat(r.score)})).filter(r=>!isNaN(r.v)&&r.v>0);
+}
+async function weeklyProg(){
+  const user=await currentUser();if(!user)return[];
+  const{data,error}=await sb.from("workout_sessions").select("date,score").eq("user_id",user.id).not("score","is",null).order("date",{ascending:true});
+  if(error){console.error(error);return[];}
+  const wks={};
+  (data||[]).forEach(r=>{const wk=wkKey(r.date);if(!wks[wk])wks[wk]=[];wks[wk].push(parseFloat(r.score))});
+  return Object.entries(wks).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>({l:fmtD(k),v:parseFloat((v.reduce((a,b)=>a+b,0)/v.length).toFixed(1))}));
+}
+async function exerciseProg(dayKey,exId){
+  const user=await currentUser();if(!user)return[];
+  const{data,error}=await sb.from("workout_sessions").select("date,sets").eq("user_id",user.id).eq("day_key",dayKey).order("date",{ascending:true});
+  if(error){console.error(error);return[];}
+  return(data||[]).map(r=>{
+    const ss=(r.sets||{})[exId]||[];
+    const vals=ss.map(x=>parseFloat(x.reps)).filter(v=>!isNaN(v)&&v>0);
+    return vals.length?{l:fmtD(r.date),v:parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1))}:null;
+  }).filter(Boolean);
+}
+
+// ── ONE-TIME MIGRATION from localStorage ──────────────
+// migrateLocalSessions() removed: its "wt_migrated" flag was device-wide,
+// so leftover pre-Supabase sessions could be imported into whichever account
+// signed in next on a shared device.
+
+// ── EXPORT (full backup: sessions + config) ──
+async function exportData(){
+  const btn=document.querySelector(".export-btn");
+  if(btn){btn.textContent="EXPORTING...";}
+  const user=await currentUser();
+  if(!user){if(btn)btn.textContent="⬇ EXPORT JSON";return;}
+  const{data,error}=await sb.from("workout_sessions").select("*").eq("user_id",user.id).order("date",{ascending:false});
+  if(error){if(btn)btn.textContent="⬇ EXPORT JSON";alert("Export failed. Check connection.");return;}
+  const payload={exported:new Date().toISOString(),config:store,sessions:data||[]};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`gymgo_backup_${td()}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  if(btn)btn.textContent="⬇ EXPORT JSON";
+}
+
+// ── CHART ─────────────────────────────────────────────
+function chart(data,color){
+  if(!data||!data.length)return`<div class="cempty">No sessions yet.<br>Save a session to see your graph.</div>`;
+  if(data.length===1)return`<div class="cempty">First session!<br><span style="color:${color};font-size:28px;font-weight:800;display:block;margin:8px 0">${data[0].v} pts</span>Log more to see your graph.</div>`;
+  const VW=340,VH=180,P={t:28,r:16,b:34,l:36},CW=VW-P.l-P.r,CH=VH-P.t-P.b;
+  const vals=data.map(d=>d.v),mx=Math.max(...vals),mn=Math.max(0,Math.min(...vals)-1),rng=mx-mn||1;
+  const tx=i=>P.l+(data.length>1?(i/(data.length-1))*CW:CW/2),ty=v=>P.t+CH-((v-mn)/rng)*CH;
+  let grid="";
+  [0,.5,1].forEach(t=>{const y=P.t+CH*(1-t),val=(mn+rng*t).toFixed(1);grid+=`<line x1="${P.l}" y1="${y}" x2="${VW-P.r}" y2="${y}" stroke="#1a1a1a" stroke-width="1"/><text x="${P.l-4}" y="${y+4}" fill="#2e2e2e" font-size="7" text-anchor="end" font-family="monospace">${val}</text>`});
+  const area=`M ${tx(0)} ${P.t+CH} `+data.map((d,i)=>`L ${tx(i)} ${ty(d.v)}`).join(" ")+` L ${tx(data.length-1)} ${P.t+CH} Z`;
+  const line=data.map((d,i)=>`${i===0?"M":"L"} ${tx(i)} ${ty(d.v)}`).join(" ");
+  const showAll=data.length<=7;let dots="";
+  data.forEach((d,i)=>{const x=tx(i),y=ty(d.v),isMx=d.v===mx;
+    dots+=`<circle cx="${x}" cy="${y}" r="${isMx?4.5:3}" fill="${color}" stroke="#0c0c0c" stroke-width="2"/>`;
+    if(showAll||isMx||i===0||i===data.length-1)dots+=`<text x="${x}" y="${y-8}" fill="${color}" font-size="8" text-anchor="middle" font-weight="700" font-family="monospace">${d.v}</text>`;
+  });
+  const step=Math.ceil(data.length/5);let xlbls="";
+  data.forEach((d,i)=>{if(i===0||i===data.length-1||i%step===0)xlbls+=`<text x="${tx(i)}" y="${VH-4}" fill="#3a3a3a" font-size="7" text-anchor="middle" font-family="monospace">${d.l}</text>`});
+  const gid=`g${color.replace(/[^a-z0-9]/gi,"")}`;
+  return`<svg viewBox="0 0 ${VW} ${VH}" width="100%" style="overflow:visible;display:block">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.1"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${xlbls}</svg>`;
+}
+function chartStats(data,color){
+  if(!data||!data.length)return"";
+  const vals=data.map(d=>d.v),best=Math.max(...vals).toFixed(1),diff=vals.length>=2?(vals[vals.length-1]-vals[vals.length-2]).toFixed(1):null,up=diff&&parseFloat(diff)>=0;
+  return`<div class="cstats">
+    <div class="cstat"><div class="cstlbl">SESSIONS</div><div class="cstval" style="color:${color}">${data.length}</div></div>
+    <div class="cstat"><div class="cstlbl">BEST</div><div class="cstval" style="color:${color}">${best}</div><div class="cstunit">pts</div></div>
+    <div class="cstat"><div class="cstlbl">TREND</div><div class="cstval" style="color:${diff?(up?"#00ffb3":"#ff6030"):color}">${diff?(up?"▲":"▼")+Math.abs(diff):vals[vals.length-1].toFixed(1)}</div><div class="cstunit">${diff?"vs prev":"latest"}</div></div>
+  </div>`;
+}
+
+// ── SCORES ────────────────────────────────────────────
+function exAvg(id){const a=avg((sets[id]||[]).map(s=>parseFloat(s.reps)));return a!==null?a.toFixed(1):null}
+function dayScore(){
+  const exs=getActiveDay()?.exercises||[];
+  const a=avg(exs.map(ex=>{const v=exAvg(ex.id);return v!==null?parseFloat(v):null}).filter(v=>v!==null));
+  return a!==null?a.toFixed(1):null;
+}
+function updScore(){
+  const sc=dayScore(),d=getActiveDay(),el=document.getElementById("scoreArea");if(!el)return;
+  el.innerHTML=sc?`<div class="slabel">SESSION AVG</div><div class="sval" style="color:${d.color}">${sc}</div><div class="sunit">pts</div>`:`<div class="sph">— log sets<br>to score</div>`;
+  (d.exercises||[]).forEach(ex=>{
+    const el=document.getElementById(`avg-${ex.id}`);if(!el)return;
+    const a=exAvg(ex.id);
+    if(a){el.style.display="block";el.innerHTML=`<div class="eavglbl">AVG</div><div class="eavgval" style="color:${d.color}">${a}</div><div class="eavgunit">${ex.type==="timed"?"sec":"reps"}</div>`}
+    else el.style.display="none";
+  });
+}
+function updDayBar(){
+  const d=getActiveDay();if(!d)return;
+  document.getElementById("dayMeta").textContent=`${(d.day||"").toUpperCase()}${d.day&&d.loc?" · ":""}${(d.loc||"").toUpperCase()}`;
+  document.getElementById("hdrAccent").style.color=d.color;
+  updDayCnt();
+}
+function updDayCnt(){const d=getActiveDay();if(!d)return;document.getElementById("dayCnt").textContent=`${(d.exercises||[]).length} exercises`;}
+
+// ── INPUT ─────────────────────────────────────────────
+function riH(id,i,v){
+  if(!sets[id])return;sets[id][i].reps=v;
+  const el=document.getElementById(`r-${id}-${i}`);
+  if(el){const d=getActiveDay();el.style.color=v?d.color:"";el.style.borderColor=v?d.color+"50":"";}
+  saved=false;updScore();updSave();
+  saveSetsCache();
+}
+function wiH(id,i,v){if(sets[id]){sets[id][i].weight=v;saveSetsCache();}}
+function exNoteH(id,v){exNotes[id]=v;saveSetsCache();}
+function dayNoteH(v){dayNote=v;saveSetsCache();}
+
+function addSet(id){
+  const ex=(getActiveDay().exercises||[]).find(e=>e.id===id);if(!ex)return;
+  const w=ex.showWeight&&ex.defaultWeight?ex.defaultWeight:"";
+  if(!sets[id])sets[id]=[];
+  sets[id].push({reps:"",weight:w});
+  const c=document.getElementById(`sr-${id}`);if(c)c.innerHTML=setsHTML(ex);
+  saveSetsCache();
+}
+function removeSet(id,i){
+  if(!sets[id]||sets[id].length<=1)return;
+  sets[id].splice(i,1);
+  const ex=(getActiveDay().exercises||[]).find(e=>e.id===id);
+  const c=document.getElementById(`sr-${id}`);if(c&&ex)c.innerHTML=setsHTML(ex);
+  updScore();
+  saveSetsCache();
+}
+
+function setsHTML(ex){
+  const ss=sets[ex.id]||[],d=getActiveDay(),t=ex.type;
+  let h="";
+  ss.forEach((s,i)=>{
+    h+=`<div class="srow">
+    <button class="rmvset" onclick="removeSet('${ex.id}',${i})" ${ss.length<=1?"disabled style='opacity:.2'":""}>×</button>
+    <input id="r-${ex.id}-${i}" class="sinp" type="number" inputmode="numeric" value="${s.reps}"
+      placeholder="${t==="timed"?"sec":"reps"}"
+      style="${s.reps?`color:${d.color};border-color:${d.color}50`:""}"
+      oninput="riH('${ex.id}',${i},this.value)"/>
+    ${ex.showWeight?`<input id="w-${ex.id}-${i}" class="winp" type="number" inputmode="decimal" value="${s.weight}" placeholder="kg" oninput="wiH('${ex.id}',${i},this.value)"/>`:""}
+    </div>`;
+  });
+  h+=`<button class="addbtn" onclick="addSet('${ex.id}')">+ ADD SET</button>`;
+  h+=`<div class="note-with-mic">
+    <textarea id="exnote-${ex.id}" class="ex-note-inp" placeholder="Note — how it felt, rest taken, form cues..." oninput="exNoteH('${ex.id}',this.value)">${esc(exNotes[ex.id])}</textarea>
+    <button class="mic-inline mic-inline-sm" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('exnote-${ex.id}'),t,(v)=>exNoteH('${ex.id}',v)))">🎤</button>
+  </div>`;
+  return h;
+}
+
+// ── ADD SLOT HTML ─────────────────────────────────────
+function addSlotHTML(afterIdx,always){
+  return`<div class="add-slot${always?" always":""}">
+    <div class="add-line"></div>
+    <button class="add-ex-btn" onclick="addExercise(${afterIdx})">+ ADD EXERCISE</button>
+    <div class="add-line"></div>
+  </div>`;
+}
+
+// ── RENDER: TRACK ─────────────────────────────────────
+function renderTrack(){
+  const d=getActiveDay();if(!d)return;
+  const exs=d.exercises||[];
+  let html=`<div class="consist-strip" id="consistStrip"></div>`;
+  html+=`<div class="note-with-mic">
+    <textarea id="dayNoteInp" class="day-note-inp" placeholder="Session note — energy, sleep, anything worth remembering..." oninput="dayNoteH(this.value)">${esc(dayNote)}</textarea>
+    <button class="mic-inline" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('dayNoteInp'),t,dayNoteH))">🎤</button>
+  </div>`;
+  html+=addSlotHTML(-1,false);
+  exs.forEach((ex,idx)=>{
+    const tc=TC[ex.tag]||"#888",a=exAvg(ex.id);
+    html+=`<div class="exc" id="exc-${ex.id}">
+      <div class="exh">
+        <div class="exhl">
+          <div class="exbadges">
+            ${ex.tag?`<span class="extag" style="background:${tc}15;color:${tc};border:1px solid ${tc}28">${ex.tag}</span>`:`<span class="extag" style="background:#1a1a1a;color:#333;border:1px solid #222">NO TAG</span>`}
+            ${ex.type==="timed"?'<span class="extimed">TIMED · SEC</span>':""}
+          </div>
+          <div class="exname${!ex.name?" blank":""}">${esc(ex.name)||"Unnamed — tap Edit to name"}</div>
+          ${ex.desc?`<div class="exdesc">${esc(ex.desc)}</div>`:""}
+          <div class="lastline" id="last-${ex.id}" style="display:none"></div>
+        </div>
+        <div class="exavg" id="avg-${ex.id}" style="display:${a?"block":"none"}">
+          ${a?`<div class="eavglbl">AVG</div><div class="eavgval" style="color:${d.color}">${a}</div><div class="eavgunit">${ex.type==="timed"?"sec":"reps"}</div>`:""}
+        </div>
+      </div>
+      <div class="clabels">
+        <div class="clabel" style="width:30px"></div>
+        <div class="clabel" style="flex:1">${ex.type==="timed"?"SECONDS":"REPS"}</div>
+        ${ex.showWeight?'<div class="clabel" style="width:60px">KG</div>':""}
+      </div>
+      <div class="srows" id="sr-${ex.id}">${setsHTML(ex)}</div>
+    </div>`;
+    html+=addSlotHTML(idx,false);
+  });
+  if(!exs.length)html+=`<div class="empty"><div class="eicon">➕</div><div class="etext">No exercises yet.</div><div class="esub">Tap ✏️ Edit to add your first exercise.</div></div>`;
+  document.getElementById("content").innerHTML=html;
+  fetchLastHints();
+  renderConsistency();
+}
+
+// ── LAST SESSION HINTS (async, cached per day per date) ──
+let lastHintCache={};
+
+// ── CONSISTENCY + CREATINE ────────────────────────────
+let consistCache=null; // {sessionDates:Set, creatineDates:Set, weeks:[...]}
+
+async function fetchConsistencyData(){
+  if(consistCache)return consistCache;
+  const user=await currentUser();if(!user)return null;
+  const since=addDays(weekStart(td()),-28); // this week + 4 back
+  const[sessRes,habRes]=await Promise.all([
+    sb.from("workout_sessions").select("date").eq("user_id",user.id).gte("date",since).order("date",{ascending:true}),
+    sb.from("daily_habits").select("date,creatine").eq("user_id",user.id).gte("date",since).order("date",{ascending:true})
+  ]);
+  if(sessRes.error)console.error(sessRes.error);
+  if(habRes.error)console.error(habRes.error);
+  const sessionDates=new Set((sessRes.data||[]).map(r=>r.date));
+  const creatineDates=new Set((habRes.data||[]).filter(r=>r.creatine).map(r=>r.date));
+  consistCache={sessionDates,creatineDates};
+  return consistCache;
+}
+
+function weekSummary(data,wkStart){
+  const target=weeklyTarget();
+  const days=[];let done=0;
+  for(let i=0;i<7;i++){
+    const ds=addDays(wkStart,i);
+    const trained=data.sessionDates.has(ds);
+    if(trained)done++;
+    days.push({date:ds,trained,isToday:ds===td(),future:ds>td()});
+  }
+  return{wkStart,days,done,target,hit:done>=target};
+}
+
+function creatineStreak(data){
+  // Count back from today (or yesterday, if today isn't logged yet)
+  let streak=0,cursor=td();
+  if(!data.creatineDates.has(cursor))cursor=addDays(cursor,-1);
+  while(data.creatineDates.has(cursor)){streak++;cursor=addDays(cursor,-1);}
+  return streak;
+}
+
+async function toggleCreatine(){
+  const btn=document.getElementById("creatineBtn");
+  if(btn)btn.disabled=true;
+  try{
+    const user=await currentUser();if(!user)return;
+    const today=td();
+    const{data:existing}=await sb.from("daily_habits").select("id,creatine").eq("user_id",user.id).eq("date",today).maybeSingle();
+    let error;
+    if(existing){({error}=await sb.from("daily_habits").update({creatine:!existing.creatine}).eq("id",existing.id));}
+    else{({error}=await sb.from("daily_habits").insert({user_id:user.id,date:today,creatine:true}));}
+    if(error){console.error(error);return;}
+    consistCache=null;
+    await renderConsistency();
+  }finally{if(btn)btn.disabled=false;}
+}
+
+function toggleTargetEdit(){
+  const el=document.getElementById("targetEdit");
+  if(el)el.style.display=el.style.display==="flex"?"none":"flex";
+}
+function bumpWeeklyTarget(dir){
+  store.weeklyTarget=Math.max(1,Math.min(7,weeklyTarget()+dir));
+  saveStore(store);
+  renderConsistency();
+}
+async function toggleCreatineTracking(){
+  const data=await fetchConsistencyData();
+  store.trackCreatine=!creatineEnabled(data);
+  saveStore(store);
+  await renderConsistency();
+  // Keep the settings panel open so the change is visible in place
+  const el=document.getElementById("targetEdit");
+  if(el)el.style.display="flex";
+}
+
+// Fills the consistency strip in place — TRACK renders a skeleton first, this populates it
+async function renderConsistency(){
+  const host=document.getElementById("consistStrip");
+  if(!host)return;
+  const data=await fetchConsistencyData();
+  if(!data){host.innerHTML="";return;}
+  const wk=weekSummary(data,weekStart(td()));
+  const streak=creatineStreak(data);
+  const tookToday=data.creatineDates.has(td());
+  const LBL=["M","T","W","T","F","S","S"];
+  const accent=wk.hit?"#00ffb3":"#d4ff00";
+  const CREATINE_ACCENT="#00ffb3";
+  const dots=wk.days.map((d,i)=>{
+    const cls=d.trained?"cdot done":(d.future?"cdot future":"cdot");
+    const style=d.trained?`background:${accent};border-color:${accent};color:#000`:"";
+    return`<div class="${cls}${d.isToday?" today":""}" style="${style}">${LBL[i]}</div>`;
+  }).join("");
+  // Same Mon–Sun window as the training row, so the two line up visually
+  const showCreatine=creatineEnabled(data);
+  const cDays=wk.days.map(d=>({...d,taken:data.creatineDates.has(d.date)}));
+  const cTaken=cDays.filter(d=>d.taken).length;
+  const cDots=cDays.map((d,i)=>{
+    const cls=d.taken?"cdot done":(d.future?"cdot future":"cdot");
+    const style=d.taken?`background:${CREATINE_ACCENT};border-color:${CREATINE_ACCENT};color:#000`:"";
+    return`<div class="${cls}${d.isToday?" today":""}" style="${style}">${LBL[i]}</div>`;
+  }).join("");
+  host.innerHTML=`
+    <div class="consist-row">
+      <button class="consist-count" onclick="toggleTargetEdit()">
+        <span style="color:${accent}">${wk.done}</span><span class="consist-slash">/${wk.target}</span>
+        <span class="consist-lbl">${wk.hit?"ON TARGET":"THIS WEEK"}</span>
+      </button>
+      <div class="consist-dots">${dots}</div>
+      <button class="consist-gear" onclick="toggleTargetEdit()">⚙</button>
+    </div>
+    <div class="target-edit" id="targetEdit" style="display:none">
+      <div class="target-edit-row">
+        <span class="target-edit-lbl">SESSIONS PER WEEK</span>
+        <button class="target-btn" onclick="bumpWeeklyTarget(-1)">−</button>
+        <span class="target-val">${wk.target}</span>
+        <button class="target-btn" onclick="bumpWeeklyTarget(1)">+</button>
+      </div>
+      <div class="target-edit-row">
+        <span class="target-edit-lbl">TRACK CREATINE</span>
+        <button class="track-toggle${showCreatine?" on":""}" onclick="toggleCreatineTracking()">${showCreatine?"ON":"OFF"}</button>
+      </div>
+    </div>
+    ${showCreatine?`
+    <div class="consist-row creatine-row${tookToday?" done":""}">
+      <button class="creatine-toggle" id="creatineBtn" onclick="toggleCreatine()">
+        <span class="creatine-mark">${tookToday?"✓":"○"}</span>
+        <span class="creatine-name">CREATINE</span>
+        <span class="creatine-streak">${cTaken}/7${streak>0?` · ${streak}D`:""}</span>
+      </button>
+      <div class="consist-dots">${cDots}</div>
+    </div>`:""}`;
+}
+async function fetchLastHints(){
+  const d=getActiveDay();if(!d)return;
+  const ck=d.key+"|"+td();
+  if(!(ck in lastHintCache)){
+    const user=await currentUser();if(!user)return;
+    const{data,error}=await sb.from("workout_sessions").select("date,sets,notes").eq("user_id",user.id).eq("day_key",d.key).lt("date",td()).order("date",{ascending:false}).limit(1).maybeSingle();
+    lastHintCache[ck]=error?null:(data||null);
+  }
+  const last=lastHintCache[ck];if(!last)return;
+  const cur=getActiveDay();if(!cur||cur.key!==d.key)return; // user switched day while fetching
+  (cur.exercises||[]).forEach(ex=>{
+    const el=document.getElementById(`last-${ex.id}`);if(!el)return;
+    const es=(last.sets||{})[ex.id]||[];
+    const reps=es.map(x=>x.reps).filter(v=>v!==""&&v!=null&&parseFloat(v)>0);
+    if(!reps.length)return;
+    const ws=[...new Set(es.map(x=>x.weight).filter(v=>v!==""&&v!=null))];
+    const note=last.notes?.exNotes?.[ex.id];
+    el.innerHTML=`LAST ${fmtD(last.date)} — ${reps.join(" · ")}${ws.length?` @ ${ws.join("/")}kg`:""}${note?`<br><span style="color:#4a4a4a;font-style:italic">"${esc(note)}"</span>`:""}`;
+    el.style.display="block";
+  });
+}
+
+// ── RENDER: EDIT ──────────────────────────────────────
+function renderEdit(){
+  const days=getDays(),d=days[aDay];if(!d)return;
+  const exs=d.exercises||[];
+
+  // Day config panel
+  const colorOpts=COLORS.map(c=>`<div class="color-opt${d.color===c?" on":""}" style="background:${c}" onclick="updateDayField('color','${c}')"></div>`).join("");
+  const emojiOpts=EMOJIS.map(e=>`<button style="background:${d.emoji===e?"var(--card2)":"transparent"};border:1px solid ${d.emoji===e?"#d4ff0040":"#1a1a1a"};border-radius:4px;padding:4px 6px;cursor:pointer;font-size:18px" onclick="updateDayField('emoji','${e}')">${e}</button>`).join("");
+
+  let html=`<div class="day-edit-panel">
+    <div class="dep-title">⚙️ Day Settings</div>
+    <div class="dep-row">
+      <div class="dep-label">TITLE</div>
+      <input class="dep-inp" value="${esc(d.label)}" oninput="updateDayField('label',this.value)" placeholder="Day name"/>
+    </div>
+    <div class="dep-row">
+      <div class="dep-label">SCHEDULE</div>
+      <input class="dep-inp" value="${esc(d.day)}" oninput="updateDayField('day',this.value)" placeholder="e.g. Tuesday"/>
+    </div>
+    <div class="dep-row">
+      <div class="dep-label">LOCATION</div>
+      <input class="dep-inp" value="${esc(d.loc)}" oninput="updateDayField('loc',this.value)" placeholder="e.g. Gym"/>
+    </div>
+    <div class="dep-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div class="dep-label">COLOUR</div>
+      <div class="color-opts">${colorOpts}</div>
+    </div>
+    <div class="dep-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div class="dep-label">EMOJI</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${emojiOpts}</div>
+    </div>
+    <div class="dep-row">
+      <div class="dep-label">ORDER</div>
+      <div class="dep-move-btns">
+        <button class="dep-movebtn" onclick="moveDay(${aDay},-1)" ${aDay===0?"disabled":""}>←</button>
+        <button class="dep-movebtn" onclick="moveDay(${aDay},1)" ${aDay===days.length-1?"disabled":""}>→</button>
+      </div>
+    </div>
+    <button class="dep-rmbtn" onclick="showConfirmRmDay(${aDay})">🗑 REMOVE THIS DAY</button>
+    <div class="dep-confirm" id="crmd-${aDay}" style="display:none">
+      <p>Remove "${esc(d.label)}" permanently? This cannot be undone.</p>
+      <div class="dep-confirm-btns">
+        <button class="dpc-cancel" onclick="hideConfirmRmDay(${aDay})">CANCEL</button>
+        <button class="dpc-confirm" onclick="removeDay(${aDay})">REMOVE</button>
+      </div>
+    </div>
+  </div>
+  <div class="versions-card" id="versionsPanel"></div>`;
+
+  // Exercises
+  html+=addSlotHTML(-1,true);
+  exs.forEach((ex,idx)=>{
+    const curTag=ex.tag||"",curType=ex.type||"reps";
+    const tagBtns=TAGS.map(t=>{const tc=TC[t]||"#888";return`<button class="tag-btn${curTag===t?" on":""}" style="${curTag===t?`background:${tc};border-color:${tc};color:#000`:""}" onclick="updateExField('${ex.id}','tag','${t}');renderEdit()">${t}</button>`;}).join("");
+    html+=`<div class="exc edit-mode">
+      <div class="exc-controls">
+        <div class="exc-move-btns">
+          <button class="move-btn" onclick="moveExercise('${ex.id}',-1)" ${idx===0?"disabled":""}>↑</button>
+          <button class="move-btn" onclick="moveExercise('${ex.id}',1)" ${idx===exs.length-1?"disabled":""}>↓</button>
+        </div>
+        <button class="rm-ex-btn" onclick="showConfirmRmEx('${ex.id}')">✕ REMOVE</button>
+      </div>
+      <div class="confirm-rm" id="crm-${ex.id}" style="display:none">
+        <p>Remove this exercise block?</p>
+        <div class="confirm-rm-btns">
+          <button class="crm-cancel" onclick="hideConfirmRmEx('${ex.id}')">CANCEL</button>
+          <button class="crm-confirm" onclick="removeExercise('${ex.id}')">REMOVE</button>
+        </div>
+      </div>
+      <div class="edit-card">
+        <div class="edit-section-lbl">NAME</div>
+        <div class="note-with-mic">
+          <input id="exname-${ex.id}" class="edit-inp" style="margin-bottom:0" value="${esc(ex.name)}" oninput="updateExField('${ex.id}','name',this.value)" placeholder="Exercise name..."/>
+          <button class="mic-inline mic-inline-sm" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('exname-${ex.id}'),t,(v)=>updateExField('${ex.id}','name',v)))">🎤</button>
+        </div>
+        <div class="edit-section-lbl">DESCRIPTION</div>
+        <div class="note-with-mic">
+          <textarea id="exdesc-${ex.id}" class="edit-desc-inp" oninput="updateExField('${ex.id}','desc',this.value)" placeholder="What to focus on...">${esc(ex.desc)}</textarea>
+          <button class="mic-inline mic-inline-sm" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('exdesc-${ex.id}'),t,(v)=>updateExField('${ex.id}','desc',v)))">🎤</button>
+        </div>
+        <div class="edit-section-lbl">TAG</div>
+        <div class="edit-row">${tagBtns}</div>
+        <div class="edit-section-lbl">TYPE</div>
+        <div class="edit-row">
+          <button class="type-btn${curType==="reps"?" on":""}" onclick="updateExField('${ex.id}','type','reps');renderEdit()">REPS</button>
+          <button class="type-btn${curType==="timed"?" on":""}" onclick="updateExField('${ex.id}','type','timed');renderEdit()">TIMED (SEC)</button>
+        </div>
+        <div class="edit-section-lbl">SETS</div>
+        <div class="edit-row">
+          <button class="type-btn" onclick="bumpSets('${ex.id}',-1)">−</button>
+          <span class="sets-count" id="setcnt-${ex.id}">${Math.max(1,parseInt(ex.sets)||3)}</span>
+          <button class="type-btn" onclick="bumpSets('${ex.id}',1)">+</button>
+        </div>
+        <div class="edit-section-lbl">WEIGHT TRACKING</div>
+        <div class="edit-row">
+          <button class="type-btn${ex.showWeight?" on":""}" onclick="updateExField('${ex.id}','showWeight',${!ex.showWeight});renderEdit()">
+            ${ex.showWeight?"✓ KG FIELD ON":"+ ENABLE KG FIELD"}
+          </button>
+          ${ex.showWeight?`<input class="edit-inp" style="margin-bottom:0" value="${esc(ex.defaultWeight)}" oninput="updateExField('${ex.id}','defaultWeight',this.value)" placeholder="Default kg..."/>`:""}
+        </div>
+      </div>
+    </div>`;
+    html+=addSlotHTML(idx,true);
+  });
+  document.getElementById("content").innerHTML=html;
+  renderVersionsPanel();
+}
+
+// ── RENDER: HISTORY ───────────────────────────────────
+async function renderHistory(){
+  const d=getActiveDay();if(!d)return;
+  document.getElementById("content").innerHTML=`<div class="loading-state">LOADING LOG...</div>`;
+  const h=await dayHistory(d.key);
+  let html=`<div class="log-header"><div class="slbl">${esc(d.label).toUpperCase()} LOG — ${h.length} SESSIONS</div><button class="export-btn" onclick="exportData()">⬇ EXPORT JSON</button></div>`;
+  if(!h.length)html+=`<div class="empty"><div class="eicon">📋</div><div class="etext">No sessions logged yet.</div><div class="esub">Save a session to see it here.</div></div>`;
+  else h.forEach((s,i)=>{
+    const prev=h[i+1],diff=s.sc&&prev?.sc?(parseFloat(s.sc)-parseFloat(prev.sc)).toFixed(1):null,up=diff&&parseFloat(diff)>=0;
+    let rows="";
+    (d.exercises||[]).forEach(ex=>{
+      const es=s.sets?.[ex.id]||[],vals=es.map(x=>parseFloat(x.reps)).filter(v=>!isNaN(v)&&v>0);
+      if(!vals.length)return;
+      const ws=[...new Set(es.map(x=>x.weight).filter(v=>v!==""&&v!=null))];
+      const note=s.notes?.exNotes?.[ex.id];
+      rows+=`<div class="hexrow"><div class="hexname">${esc(ex.name)||"Exercise"}</div>
+        <div class="hexr"><div class="hexsets">${vals.join(" · ")}${ws.length?`<span class="hexkg"> @ ${ws.join("/")}kg</span>`:""}</div><div class="hexavg" style="color:${d.color}">${avg(vals).toFixed(1)}</div></div>
+        ${note?`<div class="hist-note">"${esc(note)}"</div>`:""}</div>`;
+    });
+    const dayNoteTxt=s.notes?.dayNote;
+    const sk=`wo_${d.key}_${s.dt}`;
+    html+=`<div class="hcard">
+      <div class="htop">
+        <div><div class="hbadge">${i===0?"● LATEST":`${i} SESSION${i!==1?"S":""} AGO`}</div>
+          <div class="hdate">${s.dt}</div>
+          ${diff?`<div class="hdiff" style="color:${up?"#00ffb3":"#ff6030"}">${up?"▲":"▼"} ${Math.abs(diff)} vs prev</div>`:""}
+        </div>
+        ${s.sc?`<div><div class="hslbl">DAY SCORE</div><div class="hsval" style="color:${d.color}">${s.sc}</div></div>`:""}
+      </div>
+      ${dayNoteTxt?`<div class="hist-daynote">"${esc(dayNoteTxt)}"</div>`:""}
+      ${rows}
+      <button class="delbtn" onclick="document.getElementById('cd-${sk}').style.display='block'">🗑 DELETE SESSION</button>
+      <div class="confirmdel" id="cd-${sk}" style="display:none">
+        <p>Delete this session permanently?</p>
+        <div class="confirmdel-btns">
+          <button class="cancelbtn" onclick="document.getElementById('cd-${sk}').style.display='none'">CANCEL</button>
+          <button class="confirmbtn" onclick="doDelete('${sk}')">YES, DELETE</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById("content").innerHTML=html;
+}
+
+// ── RENDER: PROGRESS ──────────────────────────────────
+async function renderProgress(){
+  const days=getDays();
+  if(!days.length){document.getElementById("content").innerHTML=`<div class="empty"><div class="eicon">📈</div><div class="etext">No training days yet.</div><div class="esub">Add a day and save sessions to see graphs.</div></div>`;return;}
+  document.getElementById("content").innerHTML=`<div class="loading-state">LOADING GRAPHS...</div>`;
+  const EXERCISE_IDX=days.length+1;
+  const tabs=[
+    ...days.map((d,i)=>({l:`${d.emoji} ${esc(d.label)}`,c:d.color,k:d.key})),
+    {l:"📈 Weekly",c:"#f2efe9",k:"weekly"},
+    {l:"📊 Exercise",c:"#d4ff00",k:"exercise"}
+  ];
+  if(aProg>=tabs.length)aProg=0;
+  const tabsHTML=tabs.map((t,i)=>`<button class="ptab${i===aProg?" on":""}" style="${i===aProg?`background:${t.c};border-color:${t.c};color:#000`:""}" onclick="setProg(${i})">${t.l}</button>`).join("");
+
+  // Exercise tab
+  if(aProg===EXERCISE_IDX){
+    if(aExDay>=days.length)aExDay=0;
+    const d=days[aExDay];
+    const exs=d.exercises||[];
+    if(!aExId||!exs.find(e=>e.id===aExId))aExId=exs[0]?.id||null;
+    const dayBtns=days.map((dd,i)=>`<button class="ptab${i===aExDay?" on":""}" style="${i===aExDay?`background:${dd.color};border-color:${dd.color};color:#000`:""}" onclick="setExDay(${i})">${dd.emoji} ${esc(dd.label)}</button>`).join("");
+    const exBtns=exs.map(ex=>{const on=ex.id===aExId;return`<button class="ex-sel-btn${on?" on":""}" style="${on?`background:${d.color}20;border-color:${d.color}60;color:${d.color}`:""}" onclick="setExId('${ex.id}')">${esc(ex.name)||"Unnamed"}</button>`;}).join("");
+    let graphHTML="";
+    if(aExId){
+      const ex=exs.find(e=>e.id===aExId);
+      const data=await exerciseProg(d.key,aExId);
+      const unit=ex?.type==="timed"?"sec":"reps";
+      graphHTML=`<div class="ccard">
+        <div class="ctitle">${(d.day||d.label).toUpperCase()} · ${(ex?.tag||"").toUpperCase()}</div>
+        <div class="csub" style="color:${d.color}">${ex?.name||"Exercise"}</div>
+        ${chart(data,d.color)}${chartStats(data,d.color)}
+      </div>
+      <div class="cfooter">Avg ${unit} per session · each dot = one session</div>`;
+    }
+    document.getElementById("content").innerHTML=`
+      <div class="slbl">PROGRESS GRAPHS</div>
+      <div class="ptabs">${tabsHTML}</div>
+      <div class="ex-graph-section">
+        <div class="ex-sec-lbl">DAY</div>
+        <div class="ptabs">${dayBtns}</div>
+        <div class="ex-sec-lbl">EXERCISE</div>
+        <div class="ex-btns">${exBtns||'<div class="cfooter">No exercises on this day yet.</div>'}</div>
+      </div>
+      ${graphHTML}`;
+    return;
+  }
+
+  // Day / Weekly tab
+  let data,color,title,sub,foot;
+  if(aProg<days.length){const d=days[aProg];data=await dayProg(d.key);color=d.color;title=`${(d.day||"").toUpperCase()}`;sub=`${esc(d.label)} Score Over Time`;foot="Each dot = one session";}
+  else{data=await weeklyProg();color="#f2efe9";title="ALL DAYS COMBINED";sub="Weekly Score";foot="Each dot = one week average";}
+  document.getElementById("content").innerHTML=`
+    <div class="slbl">PROGRESS GRAPHS</div>
+    <div class="ptabs">${tabsHTML}</div>
+    <div class="ccard">
+      <div class="ctitle">${title}</div>
+      <div class="csub" style="color:${color}">${sub}</div>
+      ${chart(data,color)}${chartStats(data,color)}
+    </div>
+    <div class="cfooter">${foot}</div>`;
+}
+
+function setExDay(i){aExDay=i;aExId=null;renderProgress();}
+function setExId(id){aExId=id;renderProgress();}
+
+// ── UPDATE HELPERS ────────────────────────────────────
+function updateDayField(field,val){
+  store.days[aDay][field]=val;saveStore(store);
+  renderTabs();updDayBar();
+}
+function updateExField(exId,field,val){
+  const ex=store.days[aDay].exercises.find(e=>e.id===exId);
+  if(ex)ex[field]=val;saveStore(store);
+}
+function bumpSets(exId,dir){
+  const ex=store.days[aDay].exercises.find(e=>e.id===exId);if(!ex)return;
+  const n=Math.min(10,Math.max(1,(parseInt(ex.sets)||3)+dir));
+  ex.sets=n;saveStore(store);
+  const el=document.getElementById(`setcnt-${exId}`);if(el)el.textContent=n;
+}
+function showConfirmRmDay(i){const el=document.getElementById(`crmd-${i}`);if(el)el.style.display="block";}
+function hideConfirmRmDay(i){const el=document.getElementById(`crmd-${i}`);if(el)el.style.display="none";}
+function showConfirmRmEx(id){const el=document.getElementById(`crm-${id}`);if(el)el.style.display="block";}
+function hideConfirmRmEx(id){const el=document.getElementById(`crm-${id}`);if(el)el.style.display="none";}
+async function doDelete(k){
+  const date=k.slice(-10);
+  const day_key=k.slice(3,k.length-11);
+  const{data:{user}}=await sb.auth.getUser();
+  const{error}=await sb.from("workout_sessions").delete().eq("day_key",day_key).eq("date",date).eq("user_id",user.id);
+  if(error){console.error(error);alert("Delete failed.");}
+  else{
+    // The consistency dots and "last session" hints were computed from a
+    // cached read of workout_sessions — without invalidating them here,
+    // a deleted session kept showing as "trained" until a full reload.
+    consistCache=null;
+    lastHintCache={};
+    renderHistory();
+    renderConsistency();
+  }
+}
+
+// ── SAVE ──────────────────────────────────────────────
+// Rebuilds sets/notes for a day back to a blank starting state — using
+// whatever the CURRENT default kg and set counts are. Used right after a
+// successful save so the next session starts clean, and so a changed
+// default kg actually takes effect instead of being stuck behind old,
+// already-"started" rows that reconcileSets refuses to touch.
+function resetTrackState(d){
+  if(!d)return;
+  (d.exercises||[]).forEach(ex=>{
+    const w=ex.showWeight&&ex.defaultWeight?ex.defaultWeight:"";
+    sets[ex.id]=Array(Math.max(1,parseInt(ex.sets)||3)).fill(null).map(()=>({reps:"",weight:w}));
+    exNotes[ex.id]="";
+  });
+  dayNote="";
+}
+
+async function saveSession(){
+  if(saveBusy)return;
+  saveBusy=true;
+  const sc=dayScore(),d=getActiveDay();
+  const b=document.getElementById("saveBtn");
+  b.textContent="SAVING...";b.style.background="#131313";b.style.color="#444";b.style.border="1px solid #1e1e1e";
+  const notesPayload={dayNote:dayNote||"",exNotes:exNotes||{}};
+  try{
+    const user=await currentUser();
+    if(!user){b.textContent="⚠ NOT LOGGED IN";setTimeout(()=>updSave(),2500);return;}
+    const{data:existing}=await sb.from("workout_sessions").select("id").eq("user_id",user.id).eq("day_key",d.key).eq("date",td()).maybeSingle();
+    let error;
+    if(existing){
+      ({error}=await sb.from("workout_sessions").update({sets:sets,score:sc||null,notes:notesPayload}).eq("id",existing.id));
+    }else{
+      ({error}=await sb.from("workout_sessions").insert({user_id:user.id,day_key:d.key,date:td(),sets:sets,score:sc||null,notes:notesPayload}));
+    }
+    if(error){console.error(error);b.textContent="⚠ SAVE FAILED";b.style.color="#ff6030";b.style.border="1px solid #ff6030";setTimeout(()=>updSave(),2500);}
+    else{
+      saved=true;updSave();clearSetsCache(d.key);consistCache=null;lastHintCache={};renderConsistency();
+      resetTrackState(d);
+      if(view==="track")renderTrack();
+    }
+  }finally{saveBusy=false;}
+}
+function updSave(){
+  const d=getActiveDay(),b=document.getElementById("saveBtn");if(!b)return;
+  b.textContent=saved?"✓  SAVED":`SAVE ${d.label.toUpperCase()}`;
+  const col=d.color;
+  b.style.background=saved?"#131313":col;
+  b.style.color=saved?"#444":"#000";
+  b.style.opacity=saved?"1":"0.85";
+  b.style.border=`1px solid ${saved?"#1e1e1e":col}`;
+}
+
+// ── COACH TAB ─────────────────────────────────────────
+let coachMessages=[]; // {role:'user'|'assistant', content, proposal?, applied?}
+let coachBusy=false;
+let mediaRecorder=null,audioChunks=[],isRecording=false;
+const COACH_FN_URL=`${SUPABASE_URL}/functions/v1/gym-coach`;
+const TRANSCRIBE_FN_URL=`${SUPABASE_URL}/functions/v1/clever-action`;
+
+// ── COACH PROFILE (About You + rolling conversation memory) ──
+let coachProfile={about:"",summary:""};
+
+async function loadCoachProfile(){
+  const user=await currentUser();if(!user)return;
+  const{data,error}=await sb.from("coach_profile").select("about,summary").eq("user_id",user.id).maybeSingle();
+  if(error){console.error(error);return;}
+  coachProfile={about:data?.about||"",summary:data?.summary||""};
+}
+
+async function saveCoachProfileField(field,value){
+  const user=await currentUser();if(!user)return false;
+  const{data:existing}=await sb.from("coach_profile").select("id").eq("user_id",user.id).maybeSingle();
+  let error;
+  if(existing){
+    ({error}=await sb.from("coach_profile").update({[field]:value,updated_at:new Date().toISOString()}).eq("id",existing.id));
+  }else{
+    ({error}=await sb.from("coach_profile").insert({user_id:user.id,about:field==="about"?value:"",summary:field==="summary"?value:""}));
+  }
+  if(error){console.error(error);return false;}
+  coachProfile[field]=value;
+  return true;
+}
+
+async function loadCoachHistory(){
+  const user=await currentUser();if(!user)return;
+  const{data,error}=await sb.from("coach_messages").select("*").eq("user_id",user.id).order("created_at",{ascending:true}).limit(60);
+  if(error){console.error(error);return;}
+  coachMessages=(data||[]).map(r=>({role:r.role,content:r.content,proposal:r.proposal||null,applied:r.applied||false,id:r.id}));
+}
+
+async function persistCoachMessage(msg){
+  const user=await currentUser();if(!user)return null;
+  const{data,error}=await sb.from("coach_messages").insert({user_id:user.id,role:msg.role,content:msg.content,proposal:msg.proposal||null,applied:msg.applied||false}).select("id").maybeSingle();
+  if(error){console.error(error);return null;}
+  return data?.id||null;
+}
+
+async function clearCoachHistory(){
+  if(!confirm("Clear the whole conversation? This can't be undone."))return;
+  const user=await currentUser();if(!user)return;
+  await sb.from("coach_messages").delete().eq("user_id",user.id);
+  coachMessages=[];
+  renderCoach(true);
+}
+
+// ── PROFILE UI + ROLLING MEMORY ───────────────────────
+const COACH_KEEP=30; // messages kept verbatim; older ones fold into the summary
+
+let _aboutDeb=null;
+function aboutMeH(v){
+  coachProfile.about=v;
+  clearTimeout(_aboutDeb);
+  _aboutDeb=setTimeout(()=>saveCoachProfileField("about",v),700);
+}
+async function openProfile(){
+  await loadCoachProfile();
+  const t=document.getElementById("aboutMeInp");
+  if(t)t.value=coachProfile.about||"";
+  document.getElementById("profileOverlay").classList.add("show");
+}
+function closeProfile(){
+  document.getElementById("profileOverlay").classList.remove("show");
+  clearTimeout(_aboutDeb);_aboutDeb=null;
+  saveCoachProfileField("about",coachProfile.about||"");
+  if(view==="coach")renderCoach(true); // refresh the empty-state chip
+}
+
+function assessNow(){
+  sendCoachMessage("Give me a full structured assessment of where I stand right now — training, consistency, and the patterns in my notes. Organize it as a clear numbered list, ground every point in my actual data, and finish with an honest verdict. Don't soften it.");
+}
+
+// Once stored messages exceed COACH_KEEP, fold the oldest into the running
+// summary and delete them. Fired after each reply; the user never waits on it.
+async function maintainCoachMemory(){
+  const user=await currentUser();if(!user)return;
+  const{count}=await sb.from("coach_messages").select("id",{count:"exact",head:true}).eq("user_id",user.id);
+  if(!count||count<=COACH_KEEP)return;
+  const overflow=count-COACH_KEEP;
+  const{data:old}=await sb.from("coach_messages").select("id,role,content").eq("user_id",user.id).order("created_at",{ascending:true}).limit(overflow);
+  if(!old||!old.length)return;
+  const{data:{session}}=await sb.auth.getSession();
+  const res=await fetch(COACH_FN_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`},
+    body:JSON.stringify({mode:"summarize",existingSummary:coachProfile.summary||"",messages:old.map(m=>({role:m.role,content:m.content}))})
+  });
+  if(!res.ok)return;
+  const data=await res.json();
+  const summary=(data.summary||"").trim();
+  if(!summary)return;
+  const ok=await saveCoachProfileField("summary",summary);
+  if(ok)await sb.from("coach_messages").delete().in("id",old.map(m=>m.id));
+}
+
+// Build a compact summary of the user's data — kept small so each message stays cheap
+async function buildCoachContext(){
+  const user=await currentUser();if(!user)return{};
+  await loadCoachProfile(); // cheap single-row read; keeps profile + memory fresh
+  const days=getDays();
+  const routine=days.map(d=>({
+    day_key:d.key,title:d.label,schedule:d.day||"flexible",
+    exercises:(d.exercises||[]).map(ex=>({exercise_id:ex.id,name:ex.name,tag:ex.tag,type:ex.type,sets:ex.sets,defaultWeight:ex.defaultWeight||null,desc:ex.desc||""}))
+  }));
+  const{data:sessData,error:sessErr}=await sb.from("workout_sessions").select("day_key,date,sets,score,notes").eq("user_id",user.id).order("date",{ascending:false}).limit(20);
+  if(sessErr)console.error(sessErr);
+  const dayNameByKey={};days.forEach(d=>dayNameByKey[d.key]=d.label);
+  const recentSessions=(sessData||[]).map(s=>{
+    const exSummary=Object.entries(s.sets||{}).map(([exId,rows])=>{
+      const day=days.find(d=>d.key===s.day_key);
+      const ex=day?.exercises?.find(e=>e.id===exId);
+      const reps=rows.map(r=>r.reps).filter(v=>v!==""&&v!=null);
+      const kg=[...new Set(rows.map(r=>r.weight).filter(v=>v!==""&&v!=null))];
+      return{name:ex?.name||exId,reps,kg,note:s.notes?.exNotes?.[exId]||null};
+    });
+    return{day:dayNameByKey[s.day_key]||s.day_key,date:s.date,score:s.score,dayNote:s.notes?.dayNote||null,exercises:exSummary};
+  });
+
+  // Consistency: this week + the 4 before it, plus creatine adherence
+  const cd=await fetchConsistencyData();
+  let consistency=null;
+  if(cd){
+    const weeks=[];
+    for(let w=0;w<5;w++){
+      const ws=addDays(weekStart(td()),-7*w);
+      const s=weekSummary(cd,ws);
+      weeks.push({weekStarting:ws,sessions:s.done,target:s.target,hitTarget:s.hit,current:w===0});
+    }
+    consistency={weeklyTarget:weeklyTarget(),weeks};
+    // Omit creatine entirely when the user doesn't track it — otherwise the
+    // coach reads "0 days" as a failure and nags about a supplement they've
+    // deliberately turned off.
+    if(creatineEnabled(cd)){
+      const last14=[];
+      for(let i=0;i<14;i++){const ds=addDays(td(),-i);last14.push({date:ds,creatine:cd.creatineDates.has(ds)});}
+      consistency.creatine={takenToday:cd.creatineDates.has(td()),currentStreakDays:creatineStreak(cd),last14Days:last14};
+    }
+  }
+
+  const versions=await loadVersions();
+  const savedVersionLabels=versions.filter(v=>v.is_preset).map(v=>v.label);
+
+  return{today:td(),routine,recentSessions,consistency,savedVersionLabels,
+    profile:(coachProfile.about||"").trim()||null,
+    memorySummary:(coachProfile.summary||"").trim()||null};
+}
+
+// Parse a <<PROPOSAL>>{...}<<END_PROPOSAL>> block out of the assistant's reply
+function extractProposal(text){
+  const m=text.match(/<<PROPOSAL>>([\s\S]*?)<<END_PROPOSAL>>/);
+  if(!m)return{clean:text,proposal:null};
+  const clean=text.replace(m[0],"").trim();
+  try{return{clean,proposal:JSON.parse(m[1].trim())};}
+  catch{return{clean,proposal:null};}
+}
+
+function proposalSummary(p){
+  if(!p||!p.type)return"Proposed change";
+  const day=getDays().find(d=>d.key===p.day_key);
+  const dayName=day?.label||p.day_key||"a day";
+  if(p.type==="update_exercise_field")return`Update ${p.field} on an exercise in ${dayName}`;
+  if(p.type==="replace_exercise")return`Replace an exercise in ${dayName} with "${p.exercise?.name||"new exercise"}"`;
+  if(p.type==="add_exercise")return`Add "${p.exercise?.name||"new exercise"}" to ${dayName}`;
+  if(p.type==="remove_exercise")return`Remove an exercise from ${dayName}`;
+  if(p.type==="update_day_field")return`Update ${p.field} on ${dayName}`;
+  if(p.type==="add_day")return`Add a new day: "${p.day?.label||"Untitled"}"`;
+  if(p.type==="remove_day")return`Remove the day "${dayName}"`;
+  if(p.type==="restore_version")return`Restore saved version "${p.label||"unnamed"}"`;
+  if(p.type==="batch")return`${p.edits?.length||0} changes: `+(p.edits||[]).map(e=>proposalSummary(e)).join("; ");
+  return"Proposed change";
+}
+
+// Applies one atomic edit to `store`. Used directly for single proposals,
+// and looped for "batch" proposals so bulk edits (e.g. "add 2.5kg to every
+// push exercise") land as one undo-able unit rather than many small ones.
+function applySingleEdit(p){
+  if(p.type==="add_day"){
+    if(!store.days)store.days=[];
+    store.days.push({key:uid(),label:"New Day",day:"",loc:"",color:COLORS[store.days.length%COLORS.length],emoji:"⭕",exercises:[],...p.day});
+    return;
+  }
+  const dayIdx=store.days.findIndex(d=>d.key===p.day_key);
+  if(dayIdx<0)throw new Error(`day "${p.day_key}" not found`);
+  if(p.type==="update_day_field"){
+    store.days[dayIdx][p.field]=p.value;
+  }else if(p.type==="remove_day"){
+    store.days.splice(dayIdx,1);
+  }else if(p.type==="update_exercise_field"){
+    const ex=store.days[dayIdx].exercises.find(e=>e.id===p.exercise_id);
+    if(!ex)throw new Error("exercise not found");
+    ex[p.field]=p.value;
+  }else if(p.type==="replace_exercise"){
+    const i=store.days[dayIdx].exercises.findIndex(e=>e.id===p.exercise_id);
+    if(i<0)throw new Error("exercise not found");
+    store.days[dayIdx].exercises[i]={...store.days[dayIdx].exercises[i],...p.exercise,id:p.exercise_id};
+  }else if(p.type==="add_exercise"){
+    const ex={id:uid(),name:"",tag:"",type:"reps",sets:3,showWeight:false,defaultWeight:"",desc:"",...p.exercise};
+    store.days[dayIdx].exercises.push(ex);
+  }else if(p.type==="remove_exercise"){
+    store.days[dayIdx].exercises=store.days[dayIdx].exercises.filter(e=>e.id!==p.exercise_id);
+  }else{
+    throw new Error(`unknown edit type "${p.type}"`);
+  }
+}
+
+async function applyProposal(idx){
+  const msg=coachMessages[idx];if(!msg||!msg.proposal||msg.applied)return;
+  const p=msg.proposal;
+  try{
+    // Always snapshot the pre-change state first — every AI edit is undoable
+    // from the VERSIONS panel in Edit mode, no separate confirmation needed.
+    await saveVersion(`Auto — before "${proposalSummary(p).slice(0,60)}"`,true);
+
+    if(p.type==="restore_version"){
+      await restoreVersionByLabel(p.label);
+    }else if(p.type==="batch"){
+      if(!Array.isArray(p.edits)||!p.edits.length)throw new Error("empty batch");
+      p.edits.forEach(applySingleEdit);
+      saveStore(store);flushConfig();
+    }else{
+      applySingleEdit(p);
+      saveStore(store);flushConfig();
+    }
+    msg.applied=true;
+    if(msg.id)sb.from("coach_messages").update({applied:true}).eq("id",msg.id).then(()=>{});
+    if(view==="track")setDay(Math.min(aDay,Math.max(0,getDays().length-1)));
+    renderCoach(true);
+  }catch(e){
+    console.error(e);
+    alert(`Couldn't apply that change automatically (${e.message||"unknown error"}) — try asking the coach to rephrase it.`);
+  }
+}
+
+function dismissProposal(idx){
+  const msg=coachMessages[idx];if(!msg)return;
+  msg.proposal=null;
+  renderCoach(true);
+}
+
+// ── ROUTINE VERSIONS (snapshots + named presets) ──────
+let routineVersions=null; // cached list, invalidated on save/restore/delete
+
+async function saveVersion(label,isAuto){
+  const user=await currentUser();if(!user)return null;
+  const{data,error}=await sb.from("routine_versions").insert({
+    user_id:user.id,label:label||"Untitled version",config:store,is_preset:!isAuto
+  }).select("id").maybeSingle();
+  if(error){console.error(error);return null;}
+  routineVersions=null;
+  return data?.id||null;
+}
+
+async function loadVersions(force){
+  if(routineVersions&&!force)return routineVersions;
+  const user=await currentUser();if(!user)return[];
+  const{data,error}=await sb.from("routine_versions").select("id,label,is_preset,created_at").eq("user_id",user.id).order("created_at",{ascending:false}).limit(30);
+  if(error){console.error(error);return[];}
+  routineVersions=data||[];
+  return routineVersions;
+}
+
+async function restoreVersion(id){
+  if(!confirm("Restore this version? Your current routine will be snapshotted first, so this is undoable."))return;
+  await saveVersion("Auto — before restoring a version",true);
+  const{data,error}=await sb.from("routine_versions").select("config").eq("id",id).maybeSingle();
+  if(error||!data){alert("Couldn't load that version.");return;}
+  store=data.config;
+  saveStore(store);flushConfig();
+  aDay=0;renderTabs();setDay(0);
+  if(view==="track")renderEdit();
+}
+
+// Fuzzy label match so the AI can say restore_version:{label:"..."} without
+// needing to know real database IDs — it only ever sees version names.
+async function restoreVersionByLabel(label){
+  const versions=await loadVersions(true);
+  if(!versions.length)throw new Error("no saved versions exist");
+  const target=(label||"").toLowerCase();
+  let best=versions.find(v=>v.label.toLowerCase()===target)
+    ||versions.find(v=>v.label.toLowerCase().includes(target)||target.includes(v.label.toLowerCase()));
+  if(!best)best=versions[0]; // fall back to most recent if nothing matches
+  const{data,error}=await sb.from("routine_versions").select("config").eq("id",best.id).maybeSingle();
+  if(error||!data)throw new Error("couldn't load matched version");
+  store=data.config;
+  saveStore(store);flushConfig();
+}
+
+async function deleteVersion(id){
+  if(!confirm("Delete this saved version permanently?"))return;
+  await sb.from("routine_versions").delete().eq("id",id);
+  routineVersions=null;
+  renderVersionsPanel();
+}
+
+async function promptSaveVersion(){
+  const label=prompt("Name this version (e.g. \"Bulk split\", \"Before deload\"):");
+  if(!label)return;
+  await saveVersion(label,false);
+  renderVersionsPanel();
+}
+
+async function renderVersionsPanel(){
+  const host=document.getElementById("versionsPanel");if(!host)return;
+  const versions=await loadVersions(true);
+  const rows=versions.map(v=>{
+    const when=new Date(v.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+    return`<div class="version-row">
+      <div class="version-info">
+        <span class="version-icon">${v.is_preset?"📁":"↺"}</span>
+        <span class="version-label">${esc(v.label)}</span>
+        <span class="version-date">${when}</span>
+      </div>
+      <div class="version-btns">
+        <button class="version-restore" onclick="restoreVersion('${v.id}')">RESTORE</button>
+        <button class="version-del" onclick="deleteVersion('${v.id}')">×</button>
+      </div>
+    </div>`;
+  }).join("");
+  host.innerHTML=`
+    <div class="edit-section-lbl">SAVED VERSIONS</div>
+    <button class="save-version-btn" onclick="promptSaveVersion()">💾 SAVE CURRENT AS VERSION</button>
+    <div class="versions-list">${rows||'<div class="versions-empty">No saved versions yet.</div>'}</div>`;
+}
+
+async function sendCoachMessage(text){
+  if(!text||!text.trim()||coachBusy)return;
+  coachBusy=true;
+  const userMsg={role:"user",content:text.trim()};
+  coachMessages.push(userMsg);
+  persistCoachMessage(userMsg);
+  renderCoach(true);
+  try{
+    const context=await buildCoachContext();
+    const{data:{session}}=await sb.auth.getSession();
+    const history=coachMessages.slice(-20,-1).map(m=>({role:m.role,content:m.content}));
+    const res=await fetch(COACH_FN_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`},
+      body:JSON.stringify({message:text.trim(),history,context})
+    });
+    if(!res.ok){
+      const errText=await res.text();
+      throw new Error(`Coach request failed (${res.status}): ${errText.slice(0,200)}`);
+    }
+    const data=await res.json();
+    if(data.error)throw new Error(data.error);
+    const raw=data.reply||"";
+    if(!raw.trim())throw new Error("The coach returned an empty reply. Try rephrasing, or ask for a shorter answer.");
+    const{clean,proposal}=extractProposal(raw);
+    const assistantMsg={role:"assistant",content:clean||raw,proposal,applied:false};
+    coachMessages.push(assistantMsg);
+    // Persist in the background — a DB failure must never cost the user a
+    // reply they already paid for, so this is deliberately not awaited before
+    // rendering, and its failure is logged rather than thrown.
+    persistCoachMessage(assistantMsg).then(id=>{if(id)assistantMsg.id=id;});
+  }catch(e){
+    console.error(e);
+    coachMessages.push({role:"assistant",content:`Couldn't reach the coach. ${e.message||"Check your connection and try again."}`});
+  }finally{
+    coachBusy=false;
+    // IMPORTANT: render from the in-memory array (skipHistoryLoad=true).
+    // Calling renderCoach() bare re-reads coach_messages from Supabase and
+    // replaces the local array with it — which silently deletes the reply
+    // from screen whenever persistence fails.
+    renderCoach(true);
+    maintainCoachMemory().catch(console.error);
+  }
+}
+
+function coachInputKeydown(e){
+  if(e.key==="Enter"&&!e.shiftKey){
+    e.preventDefault();
+    const inp=document.getElementById("coachInp");
+    const val=inp.value;inp.value="";inp.style.height="auto";
+    sendCoachMessage(val);
+  }
+}
+function coachAutoGrow(el){el.style.height="auto";el.style.height=Math.min(100,el.scrollHeight)+"px";}
+function coachSendClick(){
+  const inp=document.getElementById("coachInp");
+  const val=inp.value;inp.value="";inp.style.height="auto";
+  sendCoachMessage(val);
+}
+
+// ── VOICE INPUT (Whisper) ─────────────────────────────
+function pickRecordingMime(){
+  // iOS Safari doesn't support webm at all — it needs mp4/aac. Ask the browser
+  // what it actually supports instead of assuming, so the file we send to
+  // Whisper matches what was actually recorded.
+  const candidates=["audio/mp4","audio/webm;codecs=opus","audio/webm","audio/aac","audio/ogg"];
+  for(const c of candidates){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(c))return c;}
+  return""; // let the browser pick its own default
+}
+
+// Generic autogrow for any textarea — used by the coach input and now every
+// note/description field too.
+function growTextarea(el){if(!el)return;el.style.height="auto";el.style.height=Math.min(140,el.scrollHeight)+"px";}
+
+// Fills a field with transcribed text, appending to whatever's already there
+// rather than overwriting it, then fires the field's own change handler so
+// the value actually gets saved (setting .value directly doesn't fire oninput).
+function deliverVoiceText(el,text,handlerFn){
+  if(!el||!text)return;
+  const existing=(el.value||"").trim();
+  const merged=existing?`${existing} ${text}`:text;
+  el.value=merged;
+  if(el.tagName==="TEXTAREA")growTextarea(el);
+  if(handlerFn)handlerFn(merged);
+}
+
+// One mic button can be recording at a time — makes sense, you only have one
+// mouth. `btnEl` gets the visual recording/busy states; `onText(text)` decides
+// what happens with the transcript once it's back.
+let activeVoiceCallback=null;
+async function toggleVoiceInput(btnEl,onText){
+  if(isRecording){stopRecording();return;}
+  if(typeof MediaRecorder==="undefined"){
+    alert("Voice recording isn't supported in this browser. Try typing instead.");
+    return;
+  }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks=[];
+    const mime=pickRecordingMime();
+    mediaRecorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+    const actualType=mediaRecorder.mimeType||mime||"audio/webm";
+    activeVoiceCallback=onText;
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data);};
+    mediaRecorder.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      if(btnEl)btnEl.classList.remove("recording");
+      if(!audioChunks.length){
+        alert("No audio was captured — try holding the mic button for a bit longer.");
+        return;
+      }
+      const blob=new Blob(audioChunks,{type:actualType});
+      await transcribeAndDeliver(blob,actualType,activeVoiceCallback,btnEl);
+    };
+    mediaRecorder.start();
+    isRecording=true;
+    if(btnEl)btnEl.classList.add("recording");
+  }catch(e){
+    console.error(e);
+    if(e.name==="NotAllowedError")alert("Microphone access was denied. Check Settings → Safari → Microphone for this site.");
+    else alert("Couldn't access the microphone. Check your browser permissions.");
+  }
+}
+function stopRecording(){
+  if(mediaRecorder&&isRecording){mediaRecorder.stop();isRecording=false;}
+}
+async function transcribeAndDeliver(blob,mimeType,onText,btnEl){
+  const origHTML=btnEl?btnEl.innerHTML:null;
+  if(btnEl){btnEl.disabled=true;btnEl.innerHTML="⏳";}
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    // Pick a filename extension that matches the actual recorded format —
+    // Whisper partly infers format from the filename, and a mismatched
+    // extension (e.g. .webm on an mp4 file) causes silent failures.
+    const ext=(mimeType||"").includes("mp4")?"mp4":(mimeType||"").includes("ogg")?"ogg":(mimeType||"").includes("webm")?"webm":"m4a";
+    const fd=new FormData();fd.append("audio",blob,`note.${ext}`);
+    const res=await fetch(TRANSCRIBE_FN_URL,{method:"POST",headers:{"Authorization":`Bearer ${session.access_token}`},body:fd});
+    if(!res.ok){
+      const errText=await res.text();
+      throw new Error(errText||`Transcription failed (${res.status})`);
+    }
+    const data=await res.json();
+    if(onText)onText(data.text||"");
+  }catch(e){
+    console.error(e);
+    alert(`Voice transcription failed: ${e.message||"unknown error"}. Try typing instead.`);
+  }finally{
+    if(btnEl){btnEl.disabled=false;btnEl.innerHTML=origHTML||"🎤";}
+  }
+}
+
+// ── RENDER: COACH ──────────────────────────────────────
+async function renderCoach(skipHistoryLoad){
+  if(!skipHistoryLoad){
+    document.getElementById("content").innerHTML=`<div class="loading-state">LOADING COACH...</div>`;
+    await loadCoachHistory();
+  }
+  let msgsHTML="";
+  coachMessages.forEach((m,i)=>{
+    if(m.role==="user"){
+      msgsHTML+=`<div class="coach-msg user">${esc(m.content)}</div>`;
+    }else{
+      msgsHTML+=`<div class="coach-msg assistant">${esc(m.content)}</div>`;
+      if(m.proposal){
+        msgsHTML+=m.applied?
+          `<div class="coach-applied">✓ APPLIED — ${esc(proposalSummary(m.proposal))}</div>`:
+          `<div class="coach-proposal">
+            <div class="coach-proposal-lbl">// SUGGESTED CHANGE</div>
+            <div class="coach-proposal-body">${esc(proposalSummary(m.proposal))}</div>
+            <div class="coach-proposal-btns">
+              <button class="coach-apply-btn" onclick="applyProposal(${i})">APPLY</button>
+              <button class="coach-dismiss-btn" onclick="dismissProposal(${i})">DISMISS</button>
+            </div>
+          </div>`;
+      }
+    }
+  });
+  if(coachBusy)msgsHTML+=`<div class="coach-msg thinking">COACH IS THINKING...</div>`;
+
+  const body=coachMessages.length?
+    `<div class="coach-msgs" id="coachMsgs">${msgsHTML}</div>`:
+    `<div class="coach-empty">
+      <div class="coach-empty-icon">🧠</div>
+      <div class="coach-empty-title">Your Coach</div>
+      <div class="coach-empty-sub">Knows your routine, your recent sessions, your notes, and your consistency. Ask it anything — how you're progressing, whether to change an exercise, or just talk through a rough week.</div>
+      ${!(coachProfile.about||"").trim()?`<button class="coach-chip coach-chip-accent" style="margin-top:6px" onclick="openProfile()">＋ SET UP YOUR PROFILE</button>`:""}
+    </div>`;
+
+  // Preserve anything half-typed (or just dictated) across a re-render
+  const prevDraft=document.getElementById("coachInp")?.value||"";
+
+  document.getElementById("content").innerHTML=`
+    <div class="coach-wrap">
+      <div class="coach-actions">
+        <button class="coach-chip coach-chip-accent" onclick="assessNow()">⚡ ASSESS</button>
+        <button class="coach-chip" onclick="openProfile()">👤 PROFILE</button>
+        ${coachMessages.length?`<button class="coach-chip coach-chip-danger" onclick="clearCoachHistory()">CLEAR</button>`:""}
+      </div>
+      ${body}
+      <div class="coach-input-bar">
+        <textarea id="coachInp" class="coach-inp" rows="1" placeholder="Ask your coach anything..." oninput="coachAutoGrow(this)" onkeydown="coachInputKeydown(event)"></textarea>
+        <button class="coach-mic-btn" id="coachMicBtn" onclick="toggleVoiceInput(this,(t)=>deliverVoiceText(document.getElementById('coachInp'),t,()=>growTextarea(document.getElementById('coachInp'))))">🎤</button>
+        <button class="coach-send-btn" onclick="coachSendClick()">➤</button>
+      </div>
+    </div>`;
+
+  if(prevDraft){
+    const inp=document.getElementById("coachInp");
+    if(inp){inp.value=prevDraft;coachAutoGrow(inp);}
+  }
+  // The page itself scrolls now (no nested scroll container), so jump the
+  // window to the newest message instead of scrolling an inner div.
+  if(coachMessages.length)window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+}
+
+// ── CONTROLLERS ───────────────────────────────────────
+function renderTabs(){
+  const days=getDays();
+  document.getElementById("dayTabs").innerHTML=
+    days.map((d,i)=>`<button class="dtab${aDay===i?" on":""}" style="${aDay===i?`background:${d.color};border-color:${d.color};color:#000`:""}" onclick="setDay(${i})">${d.emoji} ${esc(d.label)}</button>`).join("")+
+    `<button class="dtab-add" onclick="addDay()">+ DAY</button>`;
+}
+
+function setDay(i){
+  aDay=i;saved=false;editMode=false;sets={};
+  const days=getDays();
+  try{localStorage.setItem("wt_active_day",days[i]?.key||"");}catch{}
+  if(!days.length){
+    document.getElementById("editBtn").className="editbtn";
+    document.getElementById("saveBar").style.display="none";
+    document.getElementById("dayMeta").textContent="";
+    document.getElementById("dayCnt").textContent="";
+    document.getElementById("scoreArea").innerHTML=`<div class="sph"></div>`;
+    document.getElementById("content").innerHTML=`<div class="empty"><div class="eicon">🏋️</div><div class="etext">No training days yet.</div><div class="esub">Tap + DAY above to build your first day.</div></div>`;
+    return;
+  }
+  initSets();renderTabs();
+  document.getElementById("editBtn").className="editbtn";
+  document.getElementById("saveBar").style.display="block";
+  updDayBar();updScore();updSave();
+  if(view==="track")renderTrack();
+  else if(view==="history")renderHistory();
+  else renderProgress();
+}
+
+function setView(v){
+  view=v;editMode=false;
+  document.getElementById("editBtn").className="editbtn";
+  document.querySelectorAll(".vbtn").forEach((b,i)=>b.classList.toggle("on",["track","history","progress","coach"][i]===v));
+  document.getElementById("saveBar").style.display=v==="track"?"block":"none";
+  // Hide/show day tabs and dbar for coach view — it's not day-scoped
+  const dtabs=document.getElementById("dayTabs");
+  const dbar=document.querySelector(".dbar");
+  if(v==="coach"){
+    dtabs.style.display="none";
+    if(dbar)dbar.style.display="none";
+    renderCoach();
+  }else{
+    dtabs.style.display="";
+    if(dbar)dbar.style.display="";
+    if(v==="track")renderTrack();
+    else if(v==="history")renderHistory();
+    else renderProgress();
+  }
+}
+
+function toggleEdit(){
+  if(!getDays().length)return;
+  if(view!=="track")setView("track");
+  editMode=!editMode;
+  document.getElementById("editBtn").className="editbtn"+(editMode?" on":"");
+  document.getElementById("saveBar").style.display=editMode?"none":"block";
+  if(editMode)renderEdit();else{initSets();reconcileSets();renderTrack();updScore();updSave();}
+}
+
+function setProg(i){aProg=i;renderProgress();}
+
+// ── AUTH ──────────────────────────────────────────────
+let authMode="login";
+function switchAuthTab(mode){
+  authMode=mode;
+  document.getElementById("tabLogin").className="auth-tab"+(mode==="login"?" on":"");
+  document.getElementById("tabSignup").className="auth-tab"+(mode==="signup"?" on":"");
+  document.getElementById("authBtn").textContent=mode==="login"?"LOG IN":"SIGN UP";
+  document.getElementById("authErr").textContent="";
+  document.getElementById("authPass").autocomplete=mode==="login"?"current-password":"new-password";
+}
+
+async function doAuth(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pass=document.getElementById("authPass").value;
+  const btn=document.getElementById("authBtn");
+  const err=document.getElementById("authErr");
+  if(!email||!pass){err.textContent="Please enter email and password.";return;}
+  btn.textContent="...";btn.style.opacity=".6";err.textContent="";
+  let result;
+  if(authMode==="login"){
+    result=await sb.auth.signInWithPassword({email,password:pass});
+  }else{
+    result=await sb.auth.signUp({email,password:pass});
+  }
+  btn.style.opacity="1";
+  if(result.error){
+    err.textContent=result.error.message;
+    btn.textContent=authMode==="login"?"LOG IN":"SIGN UP";
+  }else if(authMode==="signup"&&result.data?.user&&!result.data.session){
+    err.style.color="#00ffb3";
+    err.textContent="Check your email to confirm your account.";
+    btn.textContent="SIGN UP";
+  }
+  // if login succeeds, onAuthStateChange handles the rest
+}
+
+async function doSignOut(){
+  if(_saveDebounce){clearTimeout(_saveDebounce);_saveDebounce=null;await syncConfig();}
+  await sb.auth.signOut();
+}
+
+async function showApp(){
+  resetAllUserState(); // guarantee a clean slate before loading this account
+  document.getElementById("authOverlay").className="auth-overlay hide";
+  document.getElementById("hdrDate").textContent=`// WORKOUT TRACKER · ${td()}`;
+  document.getElementById("content").innerHTML=`<div class="loading-state">LOADING YOUR DATA...</div>`;
+  await loadConfig();
+  const days=getDays();
+  let startIdx=0;
+  try{
+    const savedKey=localStorage.getItem("wt_active_day");
+    const idx=days.findIndex(d=>d.key===savedKey);
+    if(idx>=0)startIdx=idx;
+  }catch{}
+  aDay=startIdx;
+  renderTabs();setDay(startIdx);
+}
+
+function showAuth(){
+  resetAllUserState();
+  document.getElementById("authOverlay").className="auth-overlay";
+  document.getElementById("authErr").textContent="";
+  document.getElementById("authEmail").value="";
+  document.getElementById("authPass").value="";
+}
+
+// Wipes every scrap of the previous account from memory and localStorage.
+// Without this, signing out and into a different account on the same tab left
+// the old user's routine sitting in `store` — and because loadConfig() only
+// overwrites `store` when the new user HAS saved config, a brand-new account
+// inherited it. The first edit then synced it into their row for real.
+function resetAllUserState(){
+  // Kill pending writes first — a queued syncConfig from the old account would
+  // otherwise fire after the new one logs in and save their data to it.
+  clearTimeout(_saveDebounce);_saveDebounce=null;
+  clearTimeout(_aboutDeb);_aboutDeb=null;
+
+  store={days:[],timers:{}};
+  sets={};exNotes={};dayNote="";
+  aDay=0;aProg=0;aExDay=0;aExId=null;
+  view="track";editMode=false;saved=false;saveBusy=false;
+  coachMessages=[];coachProfile={about:"",summary:""};coachBusy=false;
+  consistCache=null;lastHintCache={};routineVersions=null;
+
+  try{
+    ["wt_sets_cache","wt_active_day",
+     // Legacy pre-Supabase keys. These were device-wide, not per-user, so they
+     // could migrate one person's old data into whoever logged in next.
+     "wt_store","wt_cfg_migrated","wt_migrated"].forEach(k=>localStorage.removeItem(k));
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith("wo_"))localStorage.removeItem(k);
+    }
+  }catch{}
+}
+
+// ── INIT ──────────────────────────────────────────────
+// Only boot the app ONCE per login. Supabase fires auth events on every token
+// refresh (e.g. reopening the app after backgrounding on iOS) — re-running
+// showApp on those wiped in-progress sets and jumped back to day 1.
+let appStarted=false;
+sb.auth.onAuthStateChange((event,session)=>{
+  if(session){
+    if(!appStarted){appStarted=true;showApp();}
+  }else{
+    appStarted=false;
+    showAuth();
+  }
+});
+
+// Flush any pending config sync when the app goes to background or closes —
+// without this, an edit made in the last 600ms before closing was lost.
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushConfig();});
+window.addEventListener("pagehide",flushConfig);
+
+// Handle enter key on auth inputs
+["authEmail","authPass"].forEach(id=>{
+  document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")doAuth();});
+});
+</script>
+</body>
+</html>
